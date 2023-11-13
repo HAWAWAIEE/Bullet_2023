@@ -11,6 +11,8 @@
     <OutputPath>.</OutputPath>
     <Name>SimpleWorldTL</Name>
     <RootNamespace>SimpleWorldTL</RootNamespace>
+    <InterpreterId>CondaEnv|CondaEnv|Bullet</InterpreterId>
+    <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +23,13 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ObjectValidity.py" />
+    <Compile Include="simpletest.py" />
     <Compile Include="SimpleWorldTL.py" />
+    <Compile Include="test.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|Bullet" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
