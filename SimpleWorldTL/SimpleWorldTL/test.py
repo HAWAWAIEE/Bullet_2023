@@ -4,12 +4,14 @@ import time
 import math
 from pynput import keyboard
 import pybullet_data 
+from pybullet_utils import bullet_client as bc
 import numpy as np
 
 STATENUM = 28
 NUMRAYS = 12
 RAYLENGTH = 5.0
 MAXDISTANCE = 100
+WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 
 # Heuristic Controller Class For Environment Test
 class HeuristicAgentController:
@@ -56,22 +58,25 @@ class HeuristicAgentController:
 # Class for Identifying Labels
 # Every Objects Should be added to Label Manager when loaded
 class LabelManager:
-    labelsDict = {}
+    def __init__(self):
+        self.labelsDict = {}
 
-    def addObject(id, label):
-        LabelManager.labelsDict[id] = label
+    def addObject(self, id, label):
+        self.labelsDict[id] = label
 
-    def getLabel(id):
-        return LabelManager.labelsDict.get(id, None)
+    def getLabel(self, id):
+        return self.labelsDict.get(id, None)
 
 # Agent Class
 class Agent:
-    def __init__(self, agentId, targetId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId = None):
+    def __init__(self, agentId, targetId, BulletClient, labelManager, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId = None):
         self.id = agentId
         self.targetId = targetId
         self.serverId = physicsClientId
         self.sensorData = [0]*STATENUM
-        
+        self.bulletClient = BulletClient
+        self.labelManager = labelManager
+
         self.baseLocation = baseCoordinate
         self.baseAngle = baseOrientation
 
@@ -91,16 +96,16 @@ class Agent:
             dz = 0
             self.rayTarget[i] = [dx, dy, 0]
 
-        rayResults = p.rayTestBatch(self.rayOrigin, self.rayTarget, parentObjectUniqueId=self.id, physicsClientId = self.serverId)
+        rayResults = self.bulletClient.rayTestBatch(self.rayOrigin, self.rayTarget, parentObjectUniqueId=self.id, physicsClientId = self.serverId)
     
         for i,result in enumerate(rayResults):
             hitObjectId, hitFraction = result[0], result[2]
-            hitDistance = hitFraction * RAYLENGTH
+            hitDistance = round(hitFraction * RAYLENGTH,3)
 
             if hitObjectId == -1:
                 label = "None"
             else:
-                label = LabelManager.getLabel(hitObjectId)
+                label = self.labelManager.getLabel(hitObjectId)
                 if label is None:
                     label = "Unknown"
 
@@ -108,48 +113,79 @@ class Agent:
             self.sensorData[2*i+5] = hitDistance
 
     def relativeDirection(self):
-        self.targetPos[0:2] = p.getBasePositionAndOrientation(self.targetId)[0][0:2]
-        self.agentPos[0:2] = p.getBasePositionAndOrientation(self.id)[0][0:2]
+        self.targetPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.targetId)[0][0:2]
+        self.agentPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.id)[0][0:2]
         self.relativeLocation = self.targetPos - self.agentPos
         self.agentTargetDistance = min(np.dot(self.relativeLocation, self.relativeLocation), MAXDISTANCE)
-        self.sensorData[2:4] = self.relativeLocation/math.sqrt(self.agentTargetDistance)
+        self.sensorData[2:4] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
 
     def reset(self):
-        p.resetBaseVelocity(self.id, [0,0,0], [0,0,0], self.serverId)
-        p.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, self.serverId)    
+        self.bulletClient.resetBaseVelocity(self.id, [0,0,0], [0,0,0], self.serverId)
+        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, self.serverId)    
 
     def observation(self):
         self.raycastBatchWithLabels()
         self.relativeDirection()
-        self.sensorData[0:2] = p.getBaseVelocity(self.id, self.serverId)[0][0:2]
+        self.sensorData[0:2] = np.round(self.bulletClient.getBaseVelocity(self.id, self.serverId)[0][0:2],3)
         print(self.sensorData)
         
 class Obstacle:
-    def __init__(self, obstacleId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None):
+    def __init__(self, obstacleId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None, BulletClient = None):
         self.id = obstacleId
         self.serverId = physicsClientId
+        self.bulletClient = BulletClient
         self.baseLocation = baseCoordinate
         self.baseAngle = baseOrientation
         
+        
     def reset(self):
-        p.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
+        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
 
 class Target:
-    def __init__(self, targetId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None):
+    def __init__(self, targetId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None, BulletClient = None):
         self.id = targetId
         self.serverId = physicsClientId
         self.baseLocation = baseCoordinate
         self.baseAngle = baseOrientation
         
     def reset(self):
-        p.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
+        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
+
+class Map:
+    def __init(self, physicsClientId = None):
+        self.serverId = physicsClientId
+        self.bulletClient = bc.BulletClient(connection_mode = p.direct)
+        self.bulletClient.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
+        self.labelManager = LabelManager()
+        
+    def simpleMap01(self):
+        
+        # Loading Map
+        planeId = self.bulletClient.loadUrdf("Plane_20x20.urdf")
+        self.labelManager.addObject(planeId, 0)
+        WallId1 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [0,20,0])
+        self.labelManager(WallId1, 1)
+        WallId2 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [0,-20,0])
+        self.labelManager(WallId2, 1)
+        WallId3 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [20,0,0], WALLORIENTATION)
+        self.labelManager(WallId3, 1)
+        WallId4 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [-20,0,0], WALLORIENTATION)
+        self.labelManager(WallId4, 1)
+        
+        # Loading Agent
+        agentId = self.bulletClient.loadURDF("Cylinder_1x1x1")
+        
+        
+        
+        pass
+    pass
 
 PhysicsClient = p.connect(p.GUI)
 
 p.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
 startPos = [0, 0, 1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-WallOrientation = p.getQuaternionFromEuler([0,0,3.14159 / 2])
+WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 
 # Loading Objects
 planeId = p.loadURDF("Plane_20x20.urdf")
@@ -157,9 +193,9 @@ WallId1 = p.loadURDF("Wall_20x10x1.urdf", [0,20,0])
 LabelManager.addObject(WallId1, "Wall")
 WallId2 = p.loadURDF("Wall_20x10x1.urdf", [0,-20,0])
 LabelManager.addObject(WallId2, "Wall")
-WallId3 = p.loadURDF("Wall_20x10x1.urdf", [20,0,0], WallOrientation)
+WallId3 = p.loadURDF("Wall_20x10x1.urdf", [20,0,0], WALLORIENTATION)
 LabelManager.addObject(WallId3, "Wall")
-WallId4 = p.loadURDF("Wall_20x10x1.urdf", [-20,0,0], WallOrientation)
+WallId4 = p.loadURDF("Wall_20x10x1.urdf", [-20,0,0], WALLORIENTATION)
 LabelManager.addObject(WallId4, "Wall")
 
 # Loading Obstacles
@@ -175,7 +211,6 @@ Target1 = Target(TargetId, [10,10,4], physicsClientId = PhysicsClient)
 # Loading Agent
 TesterId = p.loadURDF("CylinderTester_1x1x1.urdf", startPos, startOrientation)
 LabelManager.addObject(TesterId, "Agent")
-TesterAgent = Agent(TesterId, TargetId, physicsClientId = PhysicsClient)
 
 controller = HeuristicAgentController(TesterId)
 
@@ -184,5 +219,4 @@ p.setGravity(0,0,-10)
 
 while True:
     p.stepSimulation()
-    TesterAgent.observation()
     time.sleep(1./240)
