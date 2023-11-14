@@ -16,10 +16,9 @@ WallId2 = p.loadURDF("Wall_20x10x1.urdf", [0,-20,0])
 WallId3 = p.loadURDF("Wall_20x10x1.urdf", [20,0,0], WallOrientation)
 WallId4 = p.loadURDF("Wall_20x10x1.urdf", [-20,0,0], WallOrientation)
 
-ObstacleId1 = p.loadURDF("Cylinder_2x2x4.urdf", [0,0,4])
+ObstacleId1 = p.loadURDF("Agent_Double_Cylinder.urdf", [0,0,0.2])
 
 p.setGravity(0,0,-10)
-p.changeDynamics(PlaneId, -1, lateralFriction=1.0)
 while True:
     p.stepSimulation()
     time.sleep(1./240)
