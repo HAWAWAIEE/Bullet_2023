@@ -112,6 +112,56 @@ class Agent:
 
             self.sensorData[2*i+4] = label
             self.sensorData[2*i+5] = hitDistance
+            
+    def raycastBatchWithLabelsFromLink(self, LinkIndex):
+        sensorLinkPos = np.array(self.bulletClient.getLinkState(self.id, LinkIndex)[0])
+        for i in range(NUMRAYS):
+            angle = (math.pi * 2 / NUMRAYS) * i
+            dx = RAYLENGTH * math.cos(angle)
+            dy = RAYLENGTH * math.sin(angle)
+            dz = 0
+            self.rayTarget[i] = np.array([dx, dy, 0]) + sensorLinkPos
+
+        rayResults = self.bulletClient.rayTestBatch(sensorLinkPos, self.rayTarget, parentObjectUniqueId=self.id, physicsClientId = self.serverId)
+    
+        for i,result in enumerate(rayResults):
+            hitObjectId, hitFraction = result[0], result[2]
+            hitDistance = round(hitFraction * RAYLENGTH,3)
+
+            if hitObjectId == -1:
+                label = "None"
+            else:
+                label = self.labelManager.getLabel(hitObjectId)
+                if label is None:
+                    label = "Unknown"
+
+            self.sensorData[2*i+4] = label
+            self.sensorData[2*i+5] = hitDistance
+
+    def raycastBatchWithLabelsFromLinkFixed(self, LinkIndex):
+        sensorLinkPos = np.array(self.bulletClient.getLinkState(self.id, LinkIndex)[0])
+        for i in range(NUMRAYS):
+            angle = (math.pi * 2 / NUMRAYS) * i
+            dx = RAYLENGTH * math.cos(angle)
+            dy = RAYLENGTH * math.sin(angle)
+            dz = 0
+            self.rayTarget[i] = np.array([dx, dy, 0]) + sensorLinkPos
+
+        rayResults = self.bulletClient.rayTestBatch(sensorLinkPos, self.rayTarget, physicsClientId = self.serverId)
+    
+        for i,result in enumerate(rayResults):
+            hitObjectId, hitFraction = result[0], result[2]
+            hitDistance = round(hitFraction * RAYLENGTH,3)
+
+            if hitObjectId == -1:
+                label = "None"
+            else:
+                label = self.labelManager.getLabel(hitObjectId)
+                if label is None:
+                    label = "Unknown"
+
+            self.sensorData[2*i+4] = label
+            self.sensorData[2*i+5] = hitDistance
 
     def relativeDirection(self):
         self.targetPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.targetId)[0][0:2]
