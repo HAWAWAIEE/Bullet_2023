@@ -1,6 +1,6 @@
-from re import S
 import pybullet as p
 import time
+import random
 import math
 from pynput import keyboard
 import pybullet_data 
@@ -12,6 +12,34 @@ NUMRAYS = 12
 RAYLENGTH = 5.0
 MAXDISTANCE = 100
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
+RAYEXCLUDE = 0b0001
+RAYMASK = 0b1110
+
+
+def randomQuaternionZaxis(RangeList):
+    """
+    Generate a random quaternion representing a rotation around the Z-axis,
+    with an angle between 'a' and 'b' degrees using PyBullet.
+
+    Parameters:
+    RangeList : [a,b]
+
+    Returns:
+    Quaternion (x, y, z, w) representing the rotation.
+    """
+    return p.getQuaternionFromEuler([0, 0, np.radians(random.uniform(RangeList[0], RangeList[1]))])
+
+def randomPosition(RangeList):
+    """
+    Generate a random position (x,y,z) in range [[a,b][c,d][e,f]]
+    
+    Prameters:
+    RangeList : [[a,b][c,d][e,f]]
+    
+    Returns:
+    Coordinate (x,y,z) representing the random position
+    """
+    return [random.uniform(RangeList[0][0], RangeList[0][1]), random.uniform(RangeList[1][0], RangeList[1][1]), random.uniform(RangeList[2][0], RangeList[2][1])]
 
 # Heuristic Controller Class For Environment Test
 class HeuristicAgentController:
@@ -69,17 +97,26 @@ class LabelManager:
         return self.labelsDict.get(id, None)
 
 # Agent Class
+# Agent Class
 class Agent:
-    def __init__(self, agentId, targetId, BulletClient, labelManager, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId = None):
-        self.id = agentId
-        self.targetId = targetId
+    def __init__(self, URDF:str, TargetId:int, BulletClient:object, labelManager:object, RangeList:list, physicsClientId:int = None):
+        self.baseLocation = [0,0,1]
+        self.baseAngle = [0,0,0,1]
+        self.rangeList = RangeList
+
+        self.bulletClient = BulletClient
+        self.id = self.bulletClient.loadURDF(URDF, self.baseLocation, self.baseAngle)
+
+        self.targetId = TargetId
         self.serverId = physicsClientId
         self.sensorData = [0]*STATENUM
         self.bulletClient = BulletClient
         self.labelManager = labelManager
-
-        self.baseLocation = baseCoordinate
-        self.baseAngle = baseOrientation
+            
+        if physicsClientId == None:
+            self.serverId = self.bulletClient._client
+        else:
+            self.serverId = physicsClientId
 
         self.rayOrigin = [[0, 0, 0] for _ in range(NUMRAYS)]
         self.rayTarget = [[0, 0, 0] for _ in range(NUMRAYS)]
@@ -139,15 +176,15 @@ class Agent:
             self.sensorData[2*i+5] = hitDistance
 
     def raycastBatchWithLabelsFromLinkFixed(self, LinkIndex):
-        sensorLinkPos = np.array(self.bulletClient.getLinkState(self.id, LinkIndex)[0])
+        sensorLinkPos = np.tile(self.bulletClient.getLinkState(self.id, LinkIndex)[0], (12,1))
         for i in range(NUMRAYS):
             angle = (math.pi * 2 / NUMRAYS) * i
             dx = RAYLENGTH * math.cos(angle)
             dy = RAYLENGTH * math.sin(angle)
             dz = 0
-            self.rayTarget[i] = np.array([dx, dy, 0]) + sensorLinkPos
+            self.rayTarget[i] = np.array([dx, dy, 0]) + sensorLinkPos[i]
 
-        rayResults = self.bulletClient.rayTestBatch(sensorLinkPos, self.rayTarget, physicsClientId = self.serverId)
+        rayResults = self.bulletClient.rayTestBatch(sensorLinkPos, self.rayTarget, physicsClientId = self.serverId, collisionFilterMask = RAYMASK)
     
         for i,result in enumerate(rayResults):
             hitObjectId, hitFraction = result[0], result[2]
@@ -170,10 +207,14 @@ class Agent:
         self.agentTargetDistance = min(np.dot(self.relativeLocation, self.relativeLocation), MAXDISTANCE)
         self.sensorData[2:4] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
 
-    def reset(self):
-        self.bulletClient.resetBaseVelocity(self.id, [0,0,0], [0,0,0], self.serverId)
-        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, self.serverId)    
-
+    def reset(self, randomness, wantedPosition = None):
+        self.bulletClient.resetBaseVelocity(self.id, linearVelocity = 0, angularVelocity = 0, physicsClientId = self.serverId)
+        if randomness:
+            self.baseLocation = randomPosition(self.rangeList[0:3])
+            self.baseAngle = randomQuaternionZaxis(self.rangeList[3])
+        else:
+            self.baseLocation = wantedPosition
+        self.bulletClient.resetBasePositionAndOrientation(self.id, posObj = self.baseLocation, ornObj = self.baseAngle, physicsClientId = self.serverId)       
     def observation(self):
         self.raycastBatchWithLabels()
         self.relativeDirection()
@@ -181,52 +222,168 @@ class Agent:
         print(self.sensorData)
         
 class Obstacle:
-    def __init__(self, obstacleId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None, BulletClient = None):
-        self.id = obstacleId
-        self.serverId = physicsClientId
+    def __init__(self, URDF, BulletClient, BaseLocation= [0,0,0], BaseAngle = [0,0,0,1], RangeList = None, physicsClientId=None):
         self.bulletClient = BulletClient
-        self.baseLocation = baseCoordinate
-        self.baseAngle = baseOrientation
+        self.id = self.bulletClient.loadURDF(URDF, BaseLocation, BaseAngle)
+
+        self.baseLocation = BaseLocation
+        self.baseAngle = BaseAngle
+        self.rangeList = RangeList
+    
+        if physicsClientId == None:
+            self.serverId = self.bulletClient._client
+        else:
+            self.serverId = physicsClientId
         
-        
-    def reset(self):
-        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
+    def reset(self, randomness = 0, wantedPosition = None):
+        if randomness:
+            self.baseLocation = randomPosition(self.rangeList[0:3])
+            self.baseAngle = randomQuaternionZaxis(self.rangeList[3])
+        else:
+            pass
+        self.bulletClient.resetBasePositionAndOrientation(self.id, posObj = self.baseLocation, ornObj = self.baseAngle, physicsClientId = self.serverId)
 
 class Target:
-    def __init__(self, targetId, baseCoordinate = [0,0,0], baseOrientation = [0,0,0,1], physicsClientId=None, BulletClient = None):
-        self.id = targetId
-        self.serverId = physicsClientId
-        self.baseLocation = baseCoordinate
-        self.baseAngle = baseOrientation
+    def __init__(self, URDF:str, BulletClient:object, RangeList:list = None, physicsClientId:int=None):
+        self.baseLocation = [0,0,1]
+        self.baseAngle = [0,0,0,1]
+        self.rangeList = RangeList
         
-    def reset(self):
-        self.bulletClient.resetBasePositionAndOrientation(self.id, self.baseLocation, self.baseAngle, physicsClientId=self.serverId)
+        self.bulletClient = BulletClient
+        self.id = self.bulletClient.loadURDF(URDF, self.baseLocation, self.baseAngle)
+    
+        if physicsClientId == None:
+            self.serverId = self.bulletClient._client
+        else:
+            self.serverId = physicsClientId
+        
+    def reset(self, randomness = 0, wantedPosition = None):
+        if randomness:
+            self.baseLocation = randomPosition(self.rangeList[0:3])
+        else:
+            self.baseLocation = wantedPosition
+        self.bulletClient.resetBasePositionAndOrientation(self.id, posObj = self.baseLocation, ornObj = self.baseAngle, physicsClientId = self.serverId)
 
 class Map:
-    def __init(self, physicsClientId = None):
-        self.serverId = physicsClientId
-        self.bulletClient = bc.BulletClient(connection_mode = p.direct)
+    """
+    Class for Making Map
+    Follow the following order
+    1. Make Map Instance
+    2. Choose Map Size
+    3. Choose Map
+    4. Use Map Reset
+    """
+    def __init__(self, physicsClientId = None):
+        self.bulletClient = bc.BulletClient(connection_mode = p.GUI)
         self.bulletClient.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
         self.labelManager = LabelManager()
-        
-    def simpleMap01(self):
-        
-        # Loading Map
-        planeId = self.bulletClient.loadUrdf("Plane_20x20.urdf")
+        if physicsClientId == None:
+            self.serverId = self.bulletClient._client
+        else:
+            self.serverId = physicsClientId
+        self.rangeListList = []
+        self.target = None
+        self.agent = None
+
+    def generateSize20x20Map(self):
+        # Loading 20x20 Size Map
+        planeId = self.bulletClient.loadURDF("Plane_20x20.urdf")
         self.labelManager.addObject(planeId, 0)
         WallId1 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [0,20,0])
-        self.labelManager(WallId1, 1)
+        self.labelManager.addObject(WallId1, 1)
         WallId2 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [0,-20,0])
-        self.labelManager(WallId2, 1)
+        self.labelManager.addObject(WallId2, 1)
         WallId3 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [20,0,0], WALLORIENTATION)
-        self.labelManager(WallId3, 1)
+        self.labelManager.addObject(WallId3, 1)
         WallId4 = self.bulletClient.loadURDF("Wall_20x10x1.urdf", [-20,0,0], WALLORIENTATION)
-        self.labelManager(WallId4, 1)
-        
-        # Loading Agent
-        agentId = self.bulletClient.loadURDF("Cylinder_1x1x1")
-        
-        
-        
+        self.labelManager.addObject(WallId4, 1)        
+    
+    def generateSize40x40Map(self):
+        # Loading 40x40 Size Map
         pass
-    pass
+
+    # Functions for simpleMap01
+    def simpleMap01(self):
+        self.rangeListList = [[[-18,18],[6,18],[0.4,0.4],[0,0]],[[-18,18],[-6,-18],[0.4,0.4],[0,0]]]
+        # Loading Obstacles
+        obstacle1 = Obstacle("Cube_12x2x2.urdf", self.bulletClient)
+        # Loading Target
+        self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
+        # Loading Agent
+        self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1])
+        
+    def simpleMap01Reset(self):
+        # Randomly select rangeList for agent and target
+        [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
+        # Reset Agent and Target
+        self.agent.reset(1)
+        self.target.reset(1)
+        
+    # Functions for simpleMap02
+    def simpleMap02(self):
+        self.rangeListList = [[[-18,18],[6,18],[0.4,0.4],[0,0]],[[-18,18],[-6,-18],[0.4,0.4],[0,0]]]
+        # Loading Obstacles
+        obstacle1 = Obstacle("Cube_2x2x4.urdf", self.bulletClient, [0,0,0])
+        print(obstacle1.id)
+        obstacle2 = Obstacle("Cube_2x2x4.urdf", self.bulletClient, [8,0,0])
+        print(obstacle2.id)
+        obstacle3 = Obstacle("Cube_2x2x4.urdf", self.bulletClient, [16,0,0])
+        obstacle4 = Obstacle("Cube_2x2x4.urdf", self.bulletClient, [-8,0,0])
+        obstacle5 = Obstacle("Cube_2x2x4.urdf", self.bulletClient, [-16,0,0])
+
+        # Loading Target
+        self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
+        # Loading Agent
+        self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1])
+        
+    def simpleMap02Reset(self):
+        # Randomly select rangeList for agent and target
+        [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
+        # Reset Agent and Target
+        self.agent.reset(1)
+        self.target.reset(1)
+        
+# Functions for simpleMap03
+    def simpleMap03(self):
+        self.rangeListList = [[[-8,8],[6,18],[0.4,0.4],[0,0]],[[-8,8],[-6,-18],[0.4,0.4],[0,0]]]
+        # Loading Obstacles
+        obstacle1 = Obstacle("Obstacle_Concave.urdf", self.bulletClient)
+        # Loading Target
+        self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
+        # Loading Agent
+        self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1])
+        
+    def simpleMap03Reset(self):
+        # Randomly select rangeList for agent and target
+        [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
+        # Reset Agent and Target
+        self.agent.reset(1)
+        self.target.reset(1)
+        
+# Functions for simpleMap03
+    def simpleMap04(self):
+        self.rangeListList = [[[-18,-4],[-18,-4],[0.4,0.4],[0,0]],[[-18,-4],[4,18],[0.4,0.4],[0,0]],[[4,18],[-18,-4],[0.4,0.4],[0,0]],[[4, 18],[4, 18],[0.4,0.4],[0,0]]]
+        # Loading Obstacles
+        obstacle1 = Obstacle("Cube_12x2x2.urdf", self.bulletClient, BaseAngle = [0.0, 0.0, 0.707, 0.707])
+        obstacle2 = Obstacle("Cube_12x2x2.urdf", self.bulletClient)
+        # Loading Target
+        self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
+        # Loading Agent
+        self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1])
+        
+    def simpleMap04Reset(self):
+        # Randomly select rangeList for agent and target
+        [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
+        # Reset Agent and Target
+        self.agent.reset(1)
+        self.target.reset(1)
+
+
+worker2 = Map()
+worker2.generateSize20x20Map()
+worker2.simpleMap04()
+worker2.simpleMap04Reset()
+
+while True:
+    p.stepSimulation()
+    time.sleep(1./240)
