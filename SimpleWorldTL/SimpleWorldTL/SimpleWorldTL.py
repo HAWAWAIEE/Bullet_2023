@@ -6,10 +6,12 @@ from pynput import keyboard
 import pybullet_data 
 from pybullet_utils import bullet_client as bc
 import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
 
 STATENUM = 28
 NUMRAYS = 12
-RAYLENGTH = 5.0
+RAYLENGTH = 10.0
 MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
@@ -96,7 +98,6 @@ class LabelManager:
     def getLabel(self, id):
         return self.labelsDict.get(id, None)
 
-# Agent Class
 # Agent Class
 class Agent:
     def __init__(self, URDF:str, TargetId:int, BulletClient:object, labelManager:object, RangeList:list, physicsClientId:int = None):
@@ -388,16 +389,49 @@ class Map:
         self.agent.reset(1)
         self.target.reset(1)
 
+class simpleMapEnv(gym.Env):
+    def __init__(self, mapNum:int):
+        super(simpleMapEnv, self).__init__()
+        # Define Observation Space and Action Space
+        self.observation_space = spaces.Box(low=-100, high=100, shape=(28,), dtype=np.float32)
+        self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
+        
+        # Basic World configuration
+        self.world = Map()
+        self.world.generateSize20x20Map()
 
-worker1 = Map()
-worker1.generateSize20x20Map()
-worker1.simpleMap01()
-worker1.simpleMap01Reset()
-TesterAgent = HeuristicAgentController(worker1.agent.id, worker1.bulletClient)
+        if mapNum == 1:
+            # Generate simpleMap01 world
+            self.world.simpleMap01()      
+            self.world.simpleMap01Reset()
+        elif mapNum == 2:
+            # Generate simpleMap02 world
+            self.world.simpleMap02()      
+            self.world.simpleMap02Reset()
+        elif mapNum == 3:
+            # Generate simpleMap03 world
+            self.world.simpleMap03()      
+            self.world.simpleMap03Reset()
+        else:
+            # Generate simpleMap01 world
+            self.world.simpleMap04()      
+            self.world.simpleMap04Reset()
+
+    def step(self, action):
+        # Perform Action. Change x/y velocity with action
+        self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
+        observation = self.world.agent.observation()
+        reward = 
+        done = False
+        info ={}
+        return observation, reward, done, info
+    
 
 
+
+    pass
 
 while True:
     p.stepSimulation()
-    worker1.agent.observation()
+
     time.sleep(1./240)
