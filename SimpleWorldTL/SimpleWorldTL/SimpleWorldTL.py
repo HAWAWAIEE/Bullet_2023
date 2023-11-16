@@ -1,13 +1,14 @@
-import pybullet as p
+from re import S
 import time
 import random
 import math
 from pynput import keyboard
-import pybullet_data 
-from pybullet_utils import bullet_client as bc
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+import pybullet as p
+import pybullet_data 
+from pybullet_utils import bullet_client as bc
 
 STATENUM = 28
 NUMRAYS = 12
@@ -16,7 +17,8 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-
+STEPTIME = 3
+MAXSTEP = 5000
 
 def randomQuaternionZaxis(RangeList):
     """
@@ -285,6 +287,9 @@ class Map:
         self.rangeListList = []
         self.target = None
         self.agent = None
+        
+        # Set FPS
+        self.bulletClient.setTimeStep(1/60)
 
     def generateSize20x20Map(self):
         # Loading 20x20 Size Map
@@ -416,17 +421,28 @@ class simpleMapEnv(gym.Env):
             # Generate simpleMap01 world
             self.world.simpleMap04()      
             self.world.simpleMap04Reset()
+            
+        # method for detecting time
+        self.countStep = 0
+        self.timeSpend = []
 
     def step(self, action):
+        # Determine Reward and Done
+        done = self.targetCollision() or self.countStep >= MAXSTEP
+        reward = 1 if done else -0.01
+
         # Perform Action. Change x/y velocity with action
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
-        observation = self.world.agent.observation()
-        reward = 
-        done = False
-        info ={}
-        return observation, reward, done, info
-    
+        self.world.agent.observation()
+        observation = self.world.agent.sensorData
 
+        # Determine how much time will 'a step' takes
+        for i in range(STEPTIME):
+            self.world.bulletClient.stepSimulation()
+        self.countStep += 1
+        
+        return observation, reward, done
+    
     def reset(self):
         if self.mapNum == 1:
             self.world.simpleMap01Reset()
@@ -436,10 +452,15 @@ class simpleMapEnv(gym.Env):
             self.world.simpleMap03Reset()
         else:
             self.world.simpleMap04Reset()
+        # Save and Reset Time
+        self.timeSpend.append(self.countStep*STEPTIME)
+        self.countStep = 0
 
-    pass
+    # Collision Detection Logic
+    def targetCollision(self):
+        contacts = self.world.bulletClient.getContactPoints(bodyA=self.world.agent.id, bodyB=self.world.target.id)
+        if len(contacts) > 0:
+            return True
+        else:
+            return False
 
-while True:
-    p.stepSimulation()
-
-    time.sleep(1./240)
