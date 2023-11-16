@@ -18,7 +18,7 @@ WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
 STEPTIME = 3
-MAXSTEP = 5000
+
 
 def randomQuaternionZaxis(RangeList):
     """
@@ -217,7 +217,9 @@ class Agent:
             self.baseAngle = randomQuaternionZaxis(self.rangeList[3])
         else:
             self.baseLocation = wantedPosition
-        self.bulletClient.resetBasePositionAndOrientation(self.id, posObj = self.baseLocation, ornObj = self.baseAngle, physicsClientId = self.serverId)       
+        self.bulletClient.resetBasePositionAndOrientation(self.id, posObj = self.baseLocation, ornObj = self.baseAngle, physicsClientId = self.serverId)
+        self.observation()
+        
     def observation(self):
         self.raycastBatchWithLabelsFromLinkFixed(0)
         self.relativeDirection()
@@ -422,15 +424,26 @@ class simpleMapEnv(gym.Env):
             self.world.simpleMap04()      
             self.world.simpleMap04Reset()
             
+        """
+        Following Properties are for Recording Episodic Results
+        1. Time Spend in Simulation per Episode
+        2. Total Reward per Episode
+        """
+        # Set Initial State
+        self.initialState = self.world.agent.sensorData 
+
         # method for detecting time
         self.countStep = 0
         self.timeSpend = []
+        # method for recording reward
+        self.totalReward = 0
+        self.totalRewardList = []
 
     def step(self, action):
         # Determine Reward and Done
-        done = self.targetCollision() or self.countStep >= MAXSTEP
+        done = self.targetCollision()
         reward = 1 if done else -0.01
-
+        self.totalReward += reward
         # Perform Action. Change x/y velocity with action
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
         self.world.agent.observation()
@@ -452,9 +465,14 @@ class simpleMapEnv(gym.Env):
             self.world.simpleMap03Reset()
         else:
             self.world.simpleMap04Reset()
+        # Set Initial State
+        self.initialState = self.world.agent.sensorData 
         # Save and Reset Time
         self.timeSpend.append(self.countStep*STEPTIME)
         self.countStep = 0
+        # Save and Reset Total Reward
+        self.totalRewardList.append(self.totalReward)
+        self.totalReward = 0
 
     # Collision Detection Logic
     def targetCollision(self):
