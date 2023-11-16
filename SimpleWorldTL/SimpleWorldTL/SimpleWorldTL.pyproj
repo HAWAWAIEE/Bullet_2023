@@ -26,6 +26,7 @@
     <Compile Include="ObjectValidity.py" />
     <Compile Include="simpletest.py" />
     <Compile Include="SimpleWorldTL.py" />
+    <Compile Include="temp.py" />
     <Compile Include="test.py" />
   </ItemGroup>
   <ItemGroup>
