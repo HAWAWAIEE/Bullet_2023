@@ -399,7 +399,7 @@ class simpleMapEnv(gym.Env):
         # Basic World configuration
         self.world = Map()
         self.world.generateSize20x20Map()
-
+        self.mapNum = mapNum
         if mapNum == 1:
             # Generate simpleMap01 world
             self.world.simpleMap01()      
@@ -427,7 +427,15 @@ class simpleMapEnv(gym.Env):
         return observation, reward, done, info
     
 
-
+    def reset(self):
+        if self.mapNum == 1:
+            self.world.simpleMap01Reset()
+        elif self.mapNum == 2:
+            self.world.simpleMap02Reset()
+        elif self.mapNum == 3:
+            self.world.simpleMap03Reset()
+        else:
+            self.world.simpleMap04Reset()
 
     pass
 
