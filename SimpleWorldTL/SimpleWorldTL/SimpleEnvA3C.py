@@ -28,6 +28,8 @@ MAXSTEP = 5000
 GAMMA = 0.99
 LEARNINGRATE = 0.001
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class Actor(nn.Module):
     def __init__(self):
         super().__init__()
@@ -38,19 +40,20 @@ class Actor(nn.Module):
         self.fcSigma = nn.Linear(128, ACTIONNUM)
 
     def forward(self, x):
-        x = torch.tensor(x, dtype=torch.float32)
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        mu = 2*F.tanh(self.fcMu1(x))                   # action range -2~2
-        sigma = F.softplus(self.fcSigma1(x)) + 0.001   # to avoid 0
+        mu = 2*F.tanh(self.fcMu(x))                   # action range -2~2
+        sigma = F.softplus(self.fcSigma(x)) + 0.001   # to avoid 0
         return mu, sigma
     
     # Function to sample actions from Distribution
     def selectAction(self, state):
         stateTensor = torch.tensor(state, dtype=torch.float32)
         mu, sigma = self.forward(stateTensor)
-        mu1, mu2 = mu.split(ACTIONNUM, dim=1)
-        sigma1, sigma2 = sigma.split(ACTIONNUM, dim=1)
+        mu1, mu2 = mu[0], mu[1]
+        sigma1, sigma2 = sigma[0], sigma[1]
         distribution1 = torch.distributions.Normal(mu1, sigma1)
         distribution2 = torch.distributions.Normal(mu2, sigma2)
         action1 = torch.clamp(distribution1.sample(), -2, 2)
@@ -65,7 +68,8 @@ class Critic(nn.Module):
         self.fc3 = nn.Linear(128, 1)
         
     def forward(self, x):
-        x = torch.tensor(x, dtype=torch.float32)
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return self.fc3(x)   
@@ -95,27 +99,26 @@ class SimpleEnvWorker:
 
         self.globalNetwork.optimizer.zero_grad()
 
-        # Actor와 Critic의 그라디언트를 수동으로 적용
         for globalParam, grad in zip(self.globalNetwork.actor.parameters(), ActorAccumulatedGradient):
             globalParam.grad = grad.clone()
 
         for globalParam, grad in zip(self.globalNetwork.critic.parameters(), CriticAccumulatedGradient):
             globalParam.grad = grad.clone()
 
-        # 글로벌 네트워크의 가중치 업데이트
         self.globalNetwork.optimizer.step()
         pass
     
-    def calculateGradient(self, opt, NStepReturn:float, state, action, actionDist):
+    def calculateGradient(self, NStepReturn:float, state, action, actionDist):
         
         # Critic Loss
         value = self.network.critic.forward(state)
         criticLoss = F.mse_loss(value, NStepReturn)
 
         # Actor Loss
-        dist1 = actionDist[0]
-        dist2 = actionDist[1]
-        action1, action2 = action
+        [dist1, dist2] = actionDist
+        [action1, action2] = action
+        action1 = torch.tensor([action1], dtype=torch.float32)
+        action2 = torch.tensor([action2], dtype=torch.float32)
         logProb1 = dist1.log_prob(action1).sum(-1).unsqueeze(-1)
         logProb2 = dist2.log_prob(action2).sum(-1).unsqueeze(-1)
         advantage = (NStepReturn - value).detach()  # NStepReturn - V
@@ -127,7 +130,7 @@ class SimpleEnvWorker:
 
         # Calculate Gradients for Back Propagation
         self.network.zero_grad()
-        total_loss.backward()
+        total_loss.backward(retain_graph=True)
         
         actorGradients = [param.grad.data for param in self.network.actor.parameters()]
         criticGradients = [param.grad.data for param in self.network.critic.parameters()]
@@ -149,7 +152,7 @@ class SimpleEnvWorker:
             for i in range(MAXSTEP): 
                 stateList.append(state)
                 stateOld = state
-                action, actionDist = self.network.Actor.selectAction(stateOld)
+                action, actionDist = self.network.actor.selectAction(stateOld)
                 action = [action[0].item(), action[1].item()]
                 state, reward, done = self.env.step(action)
                 actionList.append(action)
@@ -161,8 +164,8 @@ class SimpleEnvWorker:
                     done = True
                 
                 if totalstep%UPDATESTEP == 0 or done:
-                    actorAccumulatedGradient = None
-                    criticAccumulatedGradient = None
+                    actorAccumulatedGradient = [torch.zeros_like(param) for param in self.network.actor.parameters()]
+                    criticAccumulatedGradient = [torch.zeros_like(param) for param in self.network.critic.parameters()]
                     v = self.globalNetwork.critic.forward(state)
                     nStepReturn = v
                     
@@ -172,7 +175,7 @@ class SimpleEnvWorker:
                         actorGradient, criticGradient = self.calculateGradient(nStepReturn, stateList[j], actionList[j], actionDistList[j])
                         actorAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(actorAccumulatedGradient, actorGradient)]
                         criticAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(criticAccumulatedGradient, criticGradient)]
-                            
+                    self.network.zero_grad()         
             # Push and Pull
                     self.upload(actorAccumulatedGradient, criticAccumulatedGradient)
                     self.download()
@@ -186,9 +189,22 @@ class SimpleEnvWorker:
                         break
                     
                 totalstep+=1  
+            print(f"Worker Num, Episode : {self.episodeNum}, Total Reward : {self.env.totalReward}, Total Step : {self.env.countStep}")
             self.episodeNum+=1
+            
             # Save Results 
             # Env has Episodic Reward List and Episodic Time Step List
            
         pass
         
+def main():
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+
+    global_network = SimpleEnvGlobalNetwork()
+
+    worker = SimpleEnvWorker(global_network, env)
+
+    worker.work()
+
+if __name__ == "__main__":
+    main()
