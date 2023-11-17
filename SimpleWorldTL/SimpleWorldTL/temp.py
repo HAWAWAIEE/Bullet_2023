@@ -1,7 +1,7 @@
-def hello():
-    return 1,3
+def hello(b):
+    b.append(3)
+    return [1],[2]
+b = [1]
+a,_ = hello(b)
 
-a = 2
-b = 3
-a,b+=hello()
-print(a,b)
+print(b)
