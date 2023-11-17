@@ -1,3 +1,4 @@
+from itertools import accumulate
 import time
 import random
 import math
@@ -14,12 +15,15 @@ import torch.optim as optim
 
 import SimpleWorldTL
 
+# Env Settings
 STATENUM = 28
 ACTIONNUM = 2
+
+# Hyper Parameters
 UPDATESTEP = 100
-WORKMAXSTEP = 1000
 MAXEPISODE = 99999999
 MAXSTEP = 5000
+GAMMA = 0.99
 
 class Actor(nn.Module):
     def __init__(self):
@@ -49,7 +53,7 @@ class Actor(nn.Module):
         distribution2 = torch.distribution.Normal(mu2, sigma2)
         action1 = torch.clamp(distribution1.sample(),-2,2)
         action2 = torch.clamp(distribution2.sample(),-2,2)
-        return action1, action2
+        return [action1, action2]
     
 class Critic(nn.Module):
     def __init__(self):
@@ -81,41 +85,82 @@ class SimpleEnvWorker:
         # Update WorkerNetwork with GlobalNetwork
         pass
     
-    def upload(self):
+    def upload(self, ActorAccumulatedGradient, CriticAccumulatedGradient):
         # Update GlobalNetwork with Accumulated Gradients
         pass
     
-    def update(self):
-        # n-step Advance Actor Critic Update and accumulate gradient
-        pass
+    def calculateGradient(self, NStepReturn:int, state, action):
+        # Calculate Gradients
+        # Critic 손실 계산
+        value = self.network.critic(state)
+        critic_loss = F.mse_loss(value, NStepReturn)
+
+        # Actor 손실 계산
+        mu, sigma, _, _ = self.network.actor(state)
+        dist = torch.distributions.Normal(mu, sigma)
+        log_prob = dist.log_prob(action).sum(-1).unsqueeze(-1)
+        advantage = (NStepReturn - value).detach()  # NStepReturn - V
+        actor_loss = -(log_prob * advantage)
+
+        # 전체 손실
+        total_loss = actor_loss + critic_loss
+
+        # 역전파를 위한 그래디언트 계산
+        self.network.zero_grad()
+        total_loss.backward()
+        
+        return self.network.actor.grad, self.network.critic.grad
 
     def work(self):
         totalstep = 0
+        rewardList = []
+        stateList = []
+        actionList = []
         while self.episodeNum < MAXEPISODE:
             # Episode Start
             self.env.reset()
-            observation = self.env.initialState
+            state = self.env.initialState
+            
             # Run env
             for i in range(MAXSTEP): 
-                observationOld = observation
-                observation, reward, done = self.env.step(self.network.Actor.selectAction(observationOld))
-                
+                stateList.append(state)
+                stateOld = state
+                action = self.network.Actor.selectAction(stateOld)
+                state, reward, done = self.env.step(action)
+                actionList.append(action)
+                rewardList.append(reward)
+
             # End episode if reached MAXSTEP
                 if i == MAXSTEP-1:
                     done = True
                 
-            # Update WorkerNetwork
-                if i%UPDATESTEP == 0 or done:
-                    self.update()
+                if totalstep%UPDATESTEP == 0 or done:
+                    actorAccumulatedGradient = 0
+                    criticAccumulatedGradient = 0
+                    v = self.globalNetwork.critic.forward(state)
+                    nStepReturn = v
+                    
+            # Update Accumulated Gradient
+                    for j in range(len(stateList)-1,-1,-1):
+                        nStepReturn = GAMMA*nStepReturn + rewardList[j]             
+                        actorGradient, criticGradient = self.calculateGradient(nStepReturn, v)
+                        actorAccumulatedGradient += actorGradient
+                        criticAccumulatedGradient += criticGradient
+                        
+            # Push and Pull
+                    self.upload()
+                    self.download()
+            # Initialize Trajectory Segment
+                    rewardList.clear()
+                    stateList.clear()
             # when episode ends during MAXSTEP
                     if done:
                         break
-            # Push and Pull 
-                if totalstep%WORKMAXSTEP == 0:
-                    self.upload()
-                    self.download()
+                    
                 totalstep+=1  
             self.episodeNum+=1
-            # Save Results    
+            # Save Results 
+            # Env has Episodic Reward List and Episodic Time Step List
+           
         pass
         
