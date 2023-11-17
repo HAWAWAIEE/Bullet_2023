@@ -17,7 +17,7 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-STEPTIME = 3
+STEPTIME = 2
 
 
 def randomQuaternionZaxis(RangeList):
@@ -278,7 +278,7 @@ class Map:
     4. Use Map Reset
     """
     def __init__(self, physicsClientId:int = None):
-        self.bulletClient = bc.BulletClient(connection_mode = p.GUI)
+        self.bulletClient = bc.BulletClient(connection_mode = p.DIRECT)
         self.bulletClient.setGravity(0,0,-10)
         self.bulletClient.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
         self.labelManager = LabelManager()
