@@ -4,6 +4,7 @@ import random
 import math
 import numpy as np
 import pandas as pd
+import os
 
 import gymnasium as gym
 import SimpleWorldTL
@@ -23,11 +24,12 @@ STATENUM = 28
 ACTIONNUM = 2
 
 # Hyper Parameters
-UPDATESTEP = 25
-MAXEPISODE = 9999
+UPDATESTEP = 50
+MAXEPISODE = 10000
 MAXSTEP = 1000
 GAMMA = 0.99
 LEARNINGRATE = 0.001
+ENTROPYWEIGHT = 0.01
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -125,8 +127,9 @@ class SimpleEnvWorker(mp.Process):
         logProb1 = dist1.log_prob(action1).sum(-1).unsqueeze(-1)
         logProb2 = dist2.log_prob(action2).sum(-1).unsqueeze(-1)
         advantage = (NStepReturn - value).detach()  # NStepReturn - V
-        actorLoss = -(logProb1 * advantage + logProb2 * advantage)
-        # entropy needed
+        entropy1 = dist1.entropy().mean()           # Distribution Entropy terms
+        entropy2 = dist2.entropy().mean()
+        actorLoss = -(logProb1 * advantage + logProb2 * advantage)-ENTROPYWEIGHT*(entropy1+entropy2)
 
         # Total Loss
         total_loss = actorLoss + criticLoss
@@ -146,6 +149,8 @@ class SimpleEnvWorker(mp.Process):
         stateList = []
         actionList = []
         actionDistList = []
+        saveDirectory = "C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\NN"
+        os.makedirs(saveDirectory, exist_ok=True)
         while self.episodeNum < MAXEPISODE:
             # Episode Start
             self.env.reset()
@@ -189,56 +194,62 @@ class SimpleEnvWorker(mp.Process):
                     actionDistList.clear()
             # when episode ends during MAXSTEP
                     if done:
-                        break
-                    
+                        break     
                 totalstep+=1  
-            print(f"Worker Num : {self.id}, Episode : {self.episodeNum}, Total Reward : {self.env.totalReward}, Total Step : {self.env.countStep}")
+            print(f"Worker {self.id} = Episode : {self.episodeNum}, Total Reward : {self.env.totalReward}, Total Step : {self.env.countStep}")
             self.episodeNum+=1
-            
-            # Save Results 
-            # Env has Episodic Reward List and Episodic Time Step List
+        # Save Results 
+            if self.id == 0 and self.episodeNum>1 and self.episodeNum%100 == 0:
+                # Save Actor&Critic Network per 1000 episode
+                actorPath = os.path.join(saveDirectory, f"actor_ep{self.episode-1}.pth")
+                criticPath = os.path.join(saveDirectory, f"critic_ep{self.episode-1}.pth")
+                torch.save(self.network.actor.state_dict(), actorPath)
+                torch.save(self.network.critic.state_dict(), criticPath)
+        # Env has Episodic Reward List and Episodic Time Step List       
+        Results = pd.DataFrame({'Total Reward': self.env.totalRewardList, 'Time Spend':self.env.timeSpend})
+        saveDirectory = f"C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\Results\\Worker{self.id}Result.xlsx"
+        Results.to_excel(saveDirectory)
+        
+def workerGUI(globalNetwork, workerId, mapNum):
+    print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+    simpleWorker.run()
+    print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
 
-
-# def workerGUI(globalNetwork, workerId, mapNum):
-#     print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
-#     env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
-#     simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
-#     simpleWorker.run()
-#     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
-
-# def worker(globalNetwork, workerId, mapNum):
-#     print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
-#     env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
-#     simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
-#     simpleWorker.run()
-#     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
-
-# if __name__ == "__main__":
-#     mp.set_start_method('spawn')
-#     GlobalNetwork = SimpleEnvGlobalNetwork()
-#     GlobalNetwork.share_memory()
-    
-#     process =[]
-    
-#     WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
-#     WorkerProcess.start()
-#     process.append(WorkerProcess)
-    
-#     for i in range(1,16):
-#         WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4))
-#         WorkerProcess.start()
-#         process.append(WorkerProcess)
-#     for proc in process:
-#         proc.join()
-
-def main():
-    env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
-
-    global_network = SimpleEnvGlobalNetwork()
-
-    worker = SimpleEnvWorker(global_network, env, 0)
-
-    worker.run()
+def worker(globalNetwork, workerId, mapNum):
+    print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+    simpleWorker.run()
+    print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
 
 if __name__ == "__main__":
-    main()
+    mp.set_start_method('spawn')
+    GlobalNetwork = SimpleEnvGlobalNetwork()
+    GlobalNetwork.share_memory()
+    
+    process =[]
+    
+    # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
+    # WorkerProcess.start()
+    # process.append(WorkerProcess)
+    
+    for i in range(0,16):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4))
+        WorkerProcess.start()
+        process.append(WorkerProcess)
+    for proc in process:
+        proc.join()
+
+# def main():
+#     env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
+
+#     global_network = SimpleEnvGlobalNetwork()
+
+#     worker = SimpleEnvWorker(global_network, env, 0)
+
+#     worker.run()
+
+# if __name__ == "__main__":
+#     main()
