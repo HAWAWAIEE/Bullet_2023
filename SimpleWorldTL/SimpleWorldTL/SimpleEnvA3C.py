@@ -20,16 +20,16 @@ import SimpleWorldTL
 import cProfile
 
 # Env Settings
-STATENUM = 28
+STATENUM = 26
 ACTIONNUM = 2
 
 # Hyper Parameters
 UPDATESTEP = 50
-MAXEPISODE = 10000
+MAXEPISODE = 1000
 MAXSTEP = 1000
 GAMMA = 0.99
 LEARNINGRATE = 0.001
-ENTROPYWEIGHT = 0.01
+ENTROPYWEIGHT = 0.001
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -146,6 +146,8 @@ class SimpleEnvWorker(mp.Process):
     def run(self):
         totalstep = 0
         rewardList = []
+        totalReward = 0
+        totalRewardList = []
         stateList = []
         actionList = []
         actionDistList = []
@@ -155,6 +157,7 @@ class SimpleEnvWorker(mp.Process):
             # Episode Start
             self.env.reset()
             state = self.env.initialState
+            totalReward = 0
             
             # Run env
             for i in range(MAXSTEP): 
@@ -165,11 +168,13 @@ class SimpleEnvWorker(mp.Process):
                 state, reward, done = self.env.step(action)
                 actionList.append(action)
                 actionDistList.append(actionDist)
-                rewardList.append(reward)
-
+                
             # End episode if reached MAXSTEP
                 if i == MAXSTEP-1:
+                    reward += (1-self.env.world.agent.agentTargetDistanceSS/self.env.world.mapScale)
                     done = True
+                totalReward += reward
+                rewardList.append(reward)
                 
                 if totalstep%UPDATESTEP == 0 or done:
                     actorAccumulatedGradient = [torch.zeros_like(param) for param in self.network.actor.parameters()]
@@ -196,17 +201,18 @@ class SimpleEnvWorker(mp.Process):
                     if done:
                         break     
                 totalstep+=1  
-            print(f"Worker {self.id} = Episode : {self.episodeNum}, Total Reward : {self.env.totalReward}, Total Step : {self.env.countStep}")
+            totalRewardList.append(totalReward)
+            print(f"Worker {self.id} = Episode : {self.episodeNum}, Total Reward : {totalReward}, Total Step : {self.env.countStep}")
             self.episodeNum+=1
-        # Save Results 
+        # Save Results ##33
             if self.id == 0 and self.episodeNum>1 and self.episodeNum%100 == 0:
                 # Save Actor&Critic Network per 1000 episode
-                actorPath = os.path.join(saveDirectory, f"actor_ep{self.episode-1}.pth")
-                criticPath = os.path.join(saveDirectory, f"critic_ep{self.episode-1}.pth")
+                actorPath = os.path.join(saveDirectory, f"actor_ep{self.episodeNum-1}.pth")
+                criticPath = os.path.join(saveDirectory, f"critic_ep{self.episodeNum-1}.pth")
                 torch.save(self.network.actor.state_dict(), actorPath)
                 torch.save(self.network.critic.state_dict(), criticPath)
-        # Env has Episodic Reward List and Episodic Time Step List       
-        Results = pd.DataFrame({'Total Reward': self.env.totalRewardList, 'Time Spend':self.env.timeSpend})
+        # save Reward List and Episodic Time Step List       
+        Results = pd.DataFrame({'Total Reward': totalRewardList, 'Time Spend':self.env.timeSpend})
         saveDirectory = f"C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\Results\\Worker{self.id}Result.xlsx"
         Results.to_excel(saveDirectory)
         
