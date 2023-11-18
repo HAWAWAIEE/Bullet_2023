@@ -1,2 +1,2 @@
-[a,b] = [1,2]
-print(a,b)
+for i in range(1):
+    print(i)

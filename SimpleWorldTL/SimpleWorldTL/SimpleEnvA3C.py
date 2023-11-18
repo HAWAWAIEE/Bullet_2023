@@ -3,6 +3,7 @@ import time
 import random
 import math
 import numpy as np
+import pandas as pd
 
 import gymnasium as gym
 import SimpleWorldTL
@@ -22,9 +23,9 @@ STATENUM = 28
 ACTIONNUM = 2
 
 # Hyper Parameters
-UPDATESTEP = 100
+UPDATESTEP = 25
 MAXEPISODE = 9999
-MAXSTEP = 3000
+MAXSTEP = 1000
 GAMMA = 0.99
 LEARNINGRATE = 0.001
 
@@ -140,9 +141,6 @@ class SimpleEnvWorker(mp.Process):
         return actorGradients, criticGradients
 
     def run(self):
-        self.work()
-
-    def work(self):
         totalstep = 0
         rewardList = []
         stateList = []
@@ -200,23 +198,47 @@ class SimpleEnvWorker(mp.Process):
             # Save Results 
             # Env has Episodic Reward List and Episodic Time Step List
 
-def worker(globalNetwork, env, workerId):
-    print(f"Starting Worker {workerId}")
-    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
-    simpleWorker.work()
-    print(f"Work {workerId} Completed")
+
+# def workerGUI(globalNetwork, workerId, mapNum):
+#     print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+#     env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+#     simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+#     simpleWorker.run()
+#     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
+
+# def worker(globalNetwork, workerId, mapNum):
+#     print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+#     env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+#     simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+#     simpleWorker.run()
+#     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
+
+# if __name__ == "__main__":
+#     mp.set_start_method('spawn')
+#     GlobalNetwork = SimpleEnvGlobalNetwork()
+#     GlobalNetwork.share_memory()
+    
+#     process =[]
+    
+#     WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
+#     WorkerProcess.start()
+#     process.append(WorkerProcess)
+    
+#     for i in range(1,16):
+#         WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4))
+#         WorkerProcess.start()
+#         process.append(WorkerProcess)
+#     for proc in process:
+#         proc.join()
+
+def main():
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
+
+    global_network = SimpleEnvGlobalNetwork()
+
+    worker = SimpleEnvWorker(global_network, env, 0)
+
+    worker.run()
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
-    globalNetwork = SimpleEnvGlobalNetwork()
-    globalNetwork.share_memory()
-
-    processes = []
-    for i in range(16):
-        workerEnv = SimpleWorldTL.simpleMapEnv(mapNum = i%4)
-        p = mp.Process(target=worker, args=(globalNetwork, workerEnv, i))
-        p.start()
-        processes.append(p)
-
-    for p in processes:
-        p.join()
+    main()
