@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>f9a9d7b0-c054-4079-aa2d-61b32a88dcc7</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>SimpleWorldTL.py</StartupFile>
+    <StartupFile>SimpleEnvA3C.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -24,6 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ObjectValidity.py" />
+    <Compile Include="SimpleEnvA3C.py" />
     <Compile Include="simpletest.py" />
     <Compile Include="SimpleWorldTL.py" />
     <Compile Include="temp.py" />

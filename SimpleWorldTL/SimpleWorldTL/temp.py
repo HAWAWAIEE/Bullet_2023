@@ -1,4 +1,2 @@
-import pybullet as p
-import time
-import math
-print(p.getQuaternionFromEuler([0,0,math.pi/2]))
+for i in range(1):
+    print(i)

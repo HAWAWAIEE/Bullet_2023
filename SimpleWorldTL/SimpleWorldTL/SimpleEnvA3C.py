@@ -1,0 +1,255 @@
+from itertools import accumulate
+import time
+import random
+import math
+import numpy as np
+import pandas as pd
+import os
+
+import gymnasium as gym
+import SimpleWorldTL
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.multiprocessing as mp
+import torch.optim as optim
+
+import multiprocessing
+import SimpleWorldTL
+import cProfile
+
+# Env Settings
+STATENUM = 28
+ACTIONNUM = 2
+
+# Hyper Parameters
+UPDATESTEP = 50
+MAXEPISODE = 10000
+MAXSTEP = 1000
+GAMMA = 0.99
+LEARNINGRATE = 0.001
+ENTROPYWEIGHT = 0.01
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class Actor(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(STATENUM, 128)
+        self.fc2 = nn.Linear(128,128)
+        # Stochastic NN for actions
+        self.fcMu = nn.Linear(128, ACTIONNUM)
+        self.fcSigma = nn.Linear(128, ACTIONNUM)
+
+    def forward(self, x):
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mu = 2*F.tanh(self.fcMu(x))                   # action range -2~2
+        sigma = F.softplus(self.fcSigma(x)) + 0.001   # to avoid 0
+        return mu, sigma
+    
+    # Function to sample actions from Distribution
+    def selectAction(self, state):
+        stateTensor = torch.tensor(state, dtype=torch.float32)
+        mu, sigma = self.forward(stateTensor)
+        mu1, mu2 = mu[0], mu[1]
+        sigma1, sigma2 = sigma[0], sigma[1]
+        distribution1 = torch.distributions.Normal(mu1, sigma1)
+        distribution2 = torch.distributions.Normal(mu2, sigma2)
+        action1 = torch.clamp(distribution1.sample(), -2, 2)
+        action2 = torch.clamp(distribution2.sample(), -2, 2)
+        return [action1, action2], [distribution1, distribution2]
+    
+class Critic(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(STATENUM, 128)
+        self.fc2 = nn.Linear(128,128)
+        self.fc3 = nn.Linear(128, 1)
+        
+    def forward(self, x):
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)   
+    
+class SimpleEnvGlobalNetwork(nn.Module):
+    def __init__(self, learningRate = LEARNINGRATE):
+        super().__init__()
+        self.actor = Actor()
+        self.critic = Critic()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr = learningRate)
+        
+class SimpleEnvWorker(mp.Process):
+    def __init__(self, GlobalNetwork, env, workerid):
+        super().__init__()
+        # Set Worker Network Structure
+        self.network = SimpleEnvGlobalNetwork()
+        self.env = env
+        self.globalNetwork = GlobalNetwork
+        self.episodeNum = 0
+        self.id = workerid
+        
+    def download(self):
+        # Update WorkerNetwork with GlobalNetwork
+        self.network.load_state_dict(self.globalNetwork.state_dict())
+        pass
+    
+    def upload(self, ActorAccumulatedGradient, CriticAccumulatedGradient):
+        # Update GlobalNetwork with Accumulated Gradients
+
+        self.globalNetwork.optimizer.zero_grad()
+
+        for globalParam, grad in zip(self.globalNetwork.actor.parameters(), ActorAccumulatedGradient):
+            globalParam.grad = grad.clone()
+
+        for globalParam, grad in zip(self.globalNetwork.critic.parameters(), CriticAccumulatedGradient):
+            globalParam.grad = grad.clone()
+
+        self.globalNetwork.optimizer.step()
+        pass
+    
+    def calculateGradient(self, NStepReturn:float, state, action, actionDist):
+        
+        # Critic Loss
+        value = self.network.critic.forward(state)
+        criticLoss = F.mse_loss(value, NStepReturn)
+
+        # Actor Loss
+        [dist1, dist2] = actionDist
+        [action1, action2] = action
+        action1 = torch.tensor([action1], dtype=torch.float32)
+        action2 = torch.tensor([action2], dtype=torch.float32)
+        logProb1 = dist1.log_prob(action1).sum(-1).unsqueeze(-1)
+        logProb2 = dist2.log_prob(action2).sum(-1).unsqueeze(-1)
+        advantage = (NStepReturn - value).detach()  # NStepReturn - V
+        entropy1 = dist1.entropy().mean()           # Distribution Entropy terms
+        entropy2 = dist2.entropy().mean()
+        actorLoss = -(logProb1 * advantage + logProb2 * advantage)-ENTROPYWEIGHT*(entropy1+entropy2)
+
+        # Total Loss
+        total_loss = actorLoss + criticLoss
+
+        # Calculate Gradients for Back Propagation
+        self.network.zero_grad()
+        total_loss.backward(retain_graph=True)
+        
+        actorGradients = [param.grad.data for param in self.network.actor.parameters()]
+        criticGradients = [param.grad.data for param in self.network.critic.parameters()]
+
+        return actorGradients, criticGradients
+
+    def run(self):
+        totalstep = 0
+        rewardList = []
+        stateList = []
+        actionList = []
+        actionDistList = []
+        saveDirectory = "C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\NN"
+        os.makedirs(saveDirectory, exist_ok=True)
+        while self.episodeNum < MAXEPISODE:
+            # Episode Start
+            self.env.reset()
+            state = self.env.initialState
+            
+            # Run env
+            for i in range(MAXSTEP): 
+                stateList.append(state)
+                stateOld = state
+                action, actionDist = self.network.actor.selectAction(stateOld)
+                action = [action[0].item(), action[1].item()]
+                state, reward, done = self.env.step(action)
+                actionList.append(action)
+                actionDistList.append(actionDist)
+                rewardList.append(reward)
+
+            # End episode if reached MAXSTEP
+                if i == MAXSTEP-1:
+                    done = True
+                
+                if totalstep%UPDATESTEP == 0 or done:
+                    actorAccumulatedGradient = [torch.zeros_like(param) for param in self.network.actor.parameters()]
+                    criticAccumulatedGradient = [torch.zeros_like(param) for param in self.network.critic.parameters()]
+                    v = self.globalNetwork.critic.forward(state)
+                    nStepReturn = v
+                    
+            # Update Accumulated Gradient
+                    for j in range(len(stateList)-1,-1,-1):
+                        nStepReturn = GAMMA*nStepReturn + rewardList[j]             
+                        actorGradient, criticGradient = self.calculateGradient(nStepReturn, stateList[j], actionList[j], actionDistList[j])
+                        actorAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(actorAccumulatedGradient, actorGradient)]
+                        criticAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(criticAccumulatedGradient, criticGradient)]
+                    self.network.zero_grad()         
+            # Push and Pull
+                    self.upload(actorAccumulatedGradient, criticAccumulatedGradient)
+                    self.download()
+            # Initialize Trajectory Segment
+                    rewardList.clear()
+                    stateList.clear()
+                    actionList.clear()
+                    actionDistList.clear()
+            # when episode ends during MAXSTEP
+                    if done:
+                        break     
+                totalstep+=1  
+            print(f"Worker {self.id} = Episode : {self.episodeNum}, Total Reward : {self.env.totalReward}, Total Step : {self.env.countStep}")
+            self.episodeNum+=1
+        # Save Results 
+            if self.id == 0 and self.episodeNum>1 and self.episodeNum%100 == 0:
+                # Save Actor&Critic Network per 1000 episode
+                actorPath = os.path.join(saveDirectory, f"actor_ep{self.episode-1}.pth")
+                criticPath = os.path.join(saveDirectory, f"critic_ep{self.episode-1}.pth")
+                torch.save(self.network.actor.state_dict(), actorPath)
+                torch.save(self.network.critic.state_dict(), criticPath)
+        # Env has Episodic Reward List and Episodic Time Step List       
+        Results = pd.DataFrame({'Total Reward': self.env.totalRewardList, 'Time Spend':self.env.timeSpend})
+        saveDirectory = f"C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\Results\\Worker{self.id}Result.xlsx"
+        Results.to_excel(saveDirectory)
+        
+def workerGUI(globalNetwork, workerId, mapNum):
+    print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+    simpleWorker.run()
+    print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
+
+def worker(globalNetwork, workerId, mapNum):
+    print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
+    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+    simpleWorker.run()
+    print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
+
+if __name__ == "__main__":
+    mp.set_start_method('spawn')
+    GlobalNetwork = SimpleEnvGlobalNetwork()
+    GlobalNetwork.share_memory()
+    
+    process =[]
+    
+    # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
+    # WorkerProcess.start()
+    # process.append(WorkerProcess)
+    
+    for i in range(0,16):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4))
+        WorkerProcess.start()
+        process.append(WorkerProcess)
+    for proc in process:
+        proc.join()
+
+# def main():
+#     env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
+
+#     global_network = SimpleEnvGlobalNetwork()
+
+#     worker = SimpleEnvWorker(global_network, env, 0)
+
+#     worker.run()
+
+# if __name__ == "__main__":
+#     main()
