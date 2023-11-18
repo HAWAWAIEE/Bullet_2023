@@ -10,9 +10,9 @@ import pybullet as p
 import pybullet_data 
 from pybullet_utils import bullet_client as bc
 
-STATENUM = 28
+STATENUM = 26
 NUMRAYS = 12
-RAYLENGTH = 10.0
+RAYLENGTH = 5.0
 MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
@@ -128,6 +128,8 @@ class Agent:
         self.targetPos = np.array([0,0])
         self.relativeLocation = np.array([0,0])
         self.agentTargetDistance = 0
+        self.agentTargetDistanceSS = 0
+        self.relativeLocationRatio = 0
 
     def raycastBatchWithLabels(self):
         for i in range(NUMRAYS):
@@ -200,15 +202,16 @@ class Agent:
                 if label is None:
                     label = 6
 
-            self.sensorData[2*i+4] = label
-            self.sensorData[2*i+5] = hitDistance
+            self.sensorData[2*i] = label
+            self.sensorData[2*i+1] = hitDistance
 
     def relativeDirection(self):
         self.targetPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.targetId)[0][0:2]
         self.agentPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.id)[0][0:2]
         self.relativeLocation = self.targetPos - self.agentPos
-        self.agentTargetDistance = min(np.dot(self.relativeLocation, self.relativeLocation), MAXDISTANCE)+0.000001
-        self.sensorData[2:4] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
+        self.agentTargetDistanceSS = np.dot(self.relativeLocation, self.relativeLocation)
+        self.agentTargetDistance = min(self.agentTargetDistanceSS, MAXDISTANCE)+0.000001
+        self.sensorData[24:26] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
 
     def reset(self, randomness, wantedPosition = None):
         self.bulletClient.resetBaseVelocity(self.id, linearVelocity = 0, angularVelocity = 0, physicsClientId = self.serverId)
@@ -223,7 +226,7 @@ class Agent:
     def observation(self):
         self.raycastBatchWithLabelsFromLinkFixed(0)
         self.relativeDirection()
-        self.sensorData[0:2] = np.round(self.bulletClient.getBaseVelocity(self.id)[0][0:2],3)
+        # self.sensorData[0] = np.round(self.bulletClient.getBaseVelocity(self.id)[0][0:2],3)
         
 class Obstacle:
     def __init__(self, URDF, BulletClient, BaseLocation= [0,0,0], BaseAngle = [0,0,0,1], RangeList = None, physicsClientId=None):
@@ -289,7 +292,7 @@ class Map:
         self.rangeListList = []
         self.target = None
         self.agent = None
-        
+        self.mapScale = 0
         # Set FPS
         self.bulletClient.setTimeStep(1/60)
 
@@ -304,7 +307,8 @@ class Map:
         WallId3 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [10,0,0], WALLORIENTATION)
         self.labelManager.addObject(WallId3, 1)
         WallId4 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [-10,0,0], WALLORIENTATION)
-        self.labelManager.addObject(WallId4, 1)        
+        self.labelManager.addObject(WallId4, 1) 
+        self.mapScale = 400
 
     # Functions for simpleMap01
     def simpleMap01(self):
@@ -612,18 +616,15 @@ class simpleMapEnv(gym.Env):
         """
         Following Properties are for Recording Episodic Results
         1. Time Spend in Simulation per Episode
-        2. Total Reward per Episode
         """
         
         # Set Initial State
         self.initialState = self.world.agent.sensorData 
+        self.initialDis = self.world.agent.agentTargetDistanceSS
 
         # method for detecting time
         self.countStep = 0
         self.timeSpend = []
-        # method for recording reward
-        self.totalReward = 0
-        self.totalRewardList = []
 
     def step(self, action):
         # Perform Action. Change x/y velocity with action
@@ -639,7 +640,6 @@ class simpleMapEnv(gym.Env):
         self.countStep += 1
         
         reward = 2 if done else -0.001 
-        self.totalReward += reward
         
         return observation, reward, done
     
@@ -654,12 +654,10 @@ class simpleMapEnv(gym.Env):
             self.world.simpleMap04Reset()
         # Set Initial State
         self.initialState = self.world.agent.sensorData 
+        self.initialDis = self.world.agent.agentTargetDistanceSS
         # Save and Reset Time
         self.timeSpend.append(self.countStep*STEPTIME)
         self.countStep = 0
-        # Save and Reset Total Reward
-        self.totalRewardList.append(self.totalReward)
-        self.totalReward = 0
 
     # Collision Detection Logic
     def targetCollision(self):
