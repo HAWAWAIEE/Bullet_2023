@@ -84,8 +84,24 @@ class SimpleEnvGlobalNetwork(nn.Module):
         self.critic = Critic()
         self.optimizer = torch.optim.Adam(self.parameters(), lr = learningRate)
         
+class SharedAdam(torch.optim.Adam):
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.99), eps=1e-8,
+                 weight_decay=0):
+        super(SharedAdam, self).__init__(params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        # State initialization
+        for group in self.param_groups:
+            for p in group['params']:
+                state = self.state[p]
+                state['step'] = 0
+                state['exp_avg'] = torch.zeros_like(p.data)
+                state['exp_avg_sq'] = torch.zeros_like(p.data)
+
+                # share in memory
+                state['exp_avg'].share_memory_()
+                state['exp_avg_sq'].share_memory_()
+
 class SimpleEnvWorker(mp.Process):
-    def __init__(self, GlobalNetwork, env, workerid):
+    def __init__(self, GlobalNetwork, env, workerid, opt):
         super().__init__()
         # Set Worker Network Structure
         self.network = SimpleEnvGlobalNetwork()
@@ -93,10 +109,13 @@ class SimpleEnvWorker(mp.Process):
         self.globalNetwork = GlobalNetwork
         self.episodeNum = 0
         self.id = workerid
+        self.opt = opt
         
     def download(self):
         # Update WorkerNetwork with GlobalNetwork
+        print(self.network.state_dict())
         self.network.load_state_dict(self.globalNetwork.state_dict())
+        print(self.network.state_dict())
         pass
     
     def upload(self, ActorAccumulatedGradient, CriticAccumulatedGradient):
@@ -127,12 +146,12 @@ class SimpleEnvWorker(mp.Process):
         logProb1 = dist1.log_prob(action1).sum(-1).unsqueeze(-1)
         logProb2 = dist2.log_prob(action2).sum(-1).unsqueeze(-1)
         advantage = (NStepReturn - value).detach()  # NStepReturn - V
-        entropy1 = dist1.entropy().mean()           # Distribution Entropy terms
-        entropy2 = dist2.entropy().mean()
+        entropy1 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(dist1.scale)           # Distribution Entropy terms
+        entropy2 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(dist2.scale)
         actorLoss = -(logProb1 * advantage + logProb2 * advantage)-ENTROPYWEIGHT*(entropy1+entropy2)
 
         # Total Loss
-        total_loss = actorLoss + criticLoss
+        total_loss = (actorLoss + criticLoss).mean()
 
         # Calculate Gradients for Back Propagation
         self.network.zero_grad()
@@ -223,43 +242,41 @@ def workerGUI(globalNetwork, workerId, mapNum):
     simpleWorker.run()
     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
 
-def worker(globalNetwork, workerId, mapNum):
+def worker(globalNetwork, workerId, mapNum, Opt):
     print(f"---------------------------------------------Starting Worker {workerId}---------------------------------------------")
     env = SimpleWorldTL.simpleMapEnv(mapNum = 1)
-    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId)
+    simpleWorker = SimpleEnvWorker(globalNetwork, env, workerId, Opt)
     simpleWorker.run()
     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
 
-if __name__ == "__main__":
-    mp.set_start_method('spawn')
-    GlobalNetwork = SimpleEnvGlobalNetwork()
-    GlobalNetwork.share_memory()
-    
-    process =[]
-    
-    # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
-    # WorkerProcess.start()
-    # process.append(WorkerProcess)
-    
-    for i in range(0,8):
-        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, 1))
-        WorkerProcess.start()
-        process.append(WorkerProcess)
-    for i in range(8,16):
-        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, 3))
-        WorkerProcess.start()
-        process.append(WorkerProcess)
-    for proc in process:
-        proc.join()
-
-# def main():
-#     env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
-
-#     global_network = SimpleEnvGlobalNetwork()
-
-#     worker = SimpleEnvWorker(global_network, env, 0)
-
-#     worker.run()
-
 # if __name__ == "__main__":
-#     main()
+#     mp.set_start_method('spawn')
+#     GlobalNetwork = SimpleEnvGlobalNetwork()
+#     GlobalNetwork.share_memory()
+#     Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
+    
+#     process =[]
+    
+#     # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
+#     # WorkerProcess.start()
+#     # process.append(WorkerProcess)
+    
+#     for i in range(0,2):
+#         WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4, Opt))
+#         WorkerProcess.start()
+#         process.append(WorkerProcess)
+
+#     for proc in process:
+#         proc.join()
+
+def main():
+    env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
+
+    GlobalNetwork = SimpleEnvGlobalNetwork()
+    Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
+    worker = SimpleEnvWorker(GlobalNetwork, env, 0, Opt)
+
+    worker.run()
+
+if __name__ == "__main__":
+    main()

@@ -414,7 +414,7 @@ class MapGUI:
         self.rangeListList = []
         self.target = None
         self.agent = None
-        
+        self.mapScale = 0
         # Set FPS
         self.bulletClient.setTimeStep(1/60)
         
@@ -430,7 +430,7 @@ class MapGUI:
         self.labelManager.addObject(WallId3, 1)
         WallId4 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [-10,0,0], WALLORIENTATION)
         self.labelManager.addObject(WallId4, 1)        
-
+        self.mapScale = 400
     # Functions for simpleMap01
     def simpleMap01(self):
         self.rangeListList = [[[-6,6],[3,6],[0.4,0.4],[0,0]],[[-6,6],[-3,-6],[0.4,0.4],[0,0]]]
