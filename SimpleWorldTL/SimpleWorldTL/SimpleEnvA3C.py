@@ -20,7 +20,7 @@ import SimpleWorldTL
 import cProfile
 
 # Env Settings
-STATENUM = 26
+STATENUM = 27
 ACTIONNUM = 2
 
 # Hyper Parameters
@@ -29,7 +29,7 @@ MAXEPISODE = 1000
 MAXSTEP = 1000
 GAMMA = 0.99
 LEARNINGRATE = 0.001
-ENTROPYWEIGHT = 0.001
+ENTROPYWEIGHT = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -241,8 +241,12 @@ if __name__ == "__main__":
     # WorkerProcess.start()
     # process.append(WorkerProcess)
     
-    for i in range(0,16):
-        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4))
+    for i in range(0,8):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, 1))
+        WorkerProcess.start()
+        process.append(WorkerProcess)
+    for i in range(8,16):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, 3))
         WorkerProcess.start()
         process.append(WorkerProcess)
     for proc in process:
