@@ -212,7 +212,7 @@ class Agent:
         self.agentTargetDistanceSS = np.dot(self.relativeLocation, self.relativeLocation)
         self.agentTargetDistance = min(self.agentTargetDistanceSS, MAXDISTANCE)+0.000001
         self.sensorData[24:26] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
-        self.sensorData[26] = round(self.agentTargetDistanceSS,5)
+        self.sensorData[26] = round(self.agentTargetDistanceSS,3)
 
     def reset(self, randomness, wantedPosition = None):
         self.bulletClient.resetBaseVelocity(self.id, linearVelocity = 0, angularVelocity = 0, physicsClientId = self.serverId)
@@ -644,7 +644,6 @@ class simpleMapEnv(gym.Env):
         
         return observation, reward, done
         
-
     def reset(self):
         if self.mapNum == 1:
             self.world.simpleMap01Reset()
