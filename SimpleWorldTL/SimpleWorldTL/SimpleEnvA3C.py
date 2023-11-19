@@ -259,8 +259,8 @@ if __name__ == "__main__":
     # WorkerProcess.start()
     # process.append(WorkerProcess)
     
-    for i in range(0,16):
-        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4, Opt))
+    for i in range(0,8):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, 3, Opt))
         WorkerProcess.start()
         process.append(WorkerProcess)
 
