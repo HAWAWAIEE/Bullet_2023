@@ -10,7 +10,7 @@ import pybullet as p
 import pybullet_data 
 from pybullet_utils import bullet_client as bc
 
-STATENUM = 26
+STATENUM = 27
 NUMRAYS = 12
 RAYLENGTH = 5.0
 MAXDISTANCE = 400
@@ -212,6 +212,7 @@ class Agent:
         self.agentTargetDistanceSS = np.dot(self.relativeLocation, self.relativeLocation)
         self.agentTargetDistance = min(self.agentTargetDistanceSS, MAXDISTANCE)+0.000001
         self.sensorData[24:26] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
+        self.sensorData[26] = round(self.agentTargetDistanceSS,5)
 
     def reset(self, randomness, wantedPosition = None):
         self.bulletClient.resetBaseVelocity(self.id, linearVelocity = 0, angularVelocity = 0, physicsClientId = self.serverId)
@@ -631,7 +632,7 @@ class simpleMapEnv(gym.Env):
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
         self.world.agent.observation()
         observation = self.world.agent.sensorData
-
+        observation[26] = observation[26]/self.world.mapScale
         # Determine how much time will 'a step' takes
         # Determine Reward and Done
         for i in range(STEPTIME):
