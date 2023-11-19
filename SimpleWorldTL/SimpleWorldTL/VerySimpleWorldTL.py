@@ -10,14 +10,14 @@ import pybullet as p
 import pybullet_data 
 from pybullet_utils import bullet_client as bc
 
-STATENUM = 20
-NUMRAYS = 8
-RAYLENGTH = 8.0
+STATENUM = 6
+NUMRAYS = 12
+RAYLENGTH = 5.0
 MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-STEPTIME = 5
+STEPTIME = 15
 
 MAXSTEP = 1000
 
@@ -183,7 +183,7 @@ class Agent:
             self.sensorData[2*i+5] = hitDistance
 
     def raycastBatchWithLabelsFromLinkFixed(self, LinkIndex):
-        sensorLinkPos = np.tile(self.bulletClient.getLinkState(self.id, LinkIndex)[0], (NUMRAYS,1))
+        sensorLinkPos = np.tile(self.bulletClient.getLinkState(self.id, LinkIndex)[0], (12,1))
         for i in range(NUMRAYS):
             angle = (math.pi * 2 / NUMRAYS) * i
             dx = RAYLENGTH * math.cos(angle)
@@ -204,8 +204,8 @@ class Agent:
                 if label is None:
                     label = 6
 
-            self.sensorData[2*i] = label
-            self.sensorData[2*i+1] = hitDistance
+            # self.sensorData[2*i] = label
+            # self.sensorData[2*i+1] = hitDistance
 
     def relativeDirection(self):
         self.targetPos[0:2] = self.bulletClient.getBasePositionAndOrientation(self.targetId)[0][0:2]
@@ -213,8 +213,8 @@ class Agent:
         self.relativeLocation = self.targetPos - self.agentPos
         self.agentTargetDistanceSS = np.dot(self.relativeLocation, self.relativeLocation)
         self.agentTargetDistance = min(self.agentTargetDistanceSS, MAXDISTANCE)+0.000001
-        self.sensorData[16:18] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
-        self.sensorData[18:20] = np.round(self.agentPos,3)
+        self.sensorData[0:2] = np.round(self.relativeLocation/math.sqrt(self.agentTargetDistance),3)
+        self.sensorData[2:4] = np.round(self.agentPos,3)
 
     def reset(self, randomness, wantedPosition = None):
         self.bulletClient.resetBaseVelocity(self.id, linearVelocity = 0, angularVelocity = 0, physicsClientId = self.serverId)
@@ -227,7 +227,7 @@ class Agent:
         self.observation()
         
     def observation(self):
-        self.raycastBatchWithLabelsFromLinkFixed(0)
+        # self.raycastBatchWithLabelsFromLinkFixed(0)
         self.relativeDirection()
         # self.sensorData[0] = np.round(self.bulletClient.getBaseVelocity(self.id)[0][0:2],3)
         
@@ -639,8 +639,8 @@ class simpleMapEnv(gym.Env):
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
         self.world.agent.observation()
         observation = self.world.agent.sensorData
-        observation[18] = observation[18]/self.world.mapRadius
-        observation[19] = observation[19]/self.world.mapRadius
+        observation[2] /= self.world.mapRadius
+        observation[3] /= self.world.mapRadius
         # Determine how much time will 'a step' takes
         # Determine Reward and Done
         for i in range(STEPTIME):
@@ -653,6 +653,7 @@ class simpleMapEnv(gym.Env):
             reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
             done = True
             truncated = True
+            print(self.world.serverId)
         else:
             truncated = False
 

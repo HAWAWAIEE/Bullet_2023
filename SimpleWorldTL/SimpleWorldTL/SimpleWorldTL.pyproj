@@ -28,6 +28,7 @@
     <Compile Include="SimpleEnvA2C.py" />
     <Compile Include="SimpleEnvA3C.py" />
     <Compile Include="simpletest.py" />
+    <Compile Include="VerySimpleWorldTL.py" />
     <Compile Include="SimpleWorldTL28.py" />
     <Compile Include="SimpleWorldTL.py" />
     <Compile Include="temp.py" />
