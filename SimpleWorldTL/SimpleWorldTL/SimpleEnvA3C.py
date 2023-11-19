@@ -61,7 +61,7 @@ class Actor(nn.Module):
         distribution2 = torch.distributions.Normal(mu2, sigma2)
         action1 = torch.clamp(distribution1.sample(), -2, 2)
         action2 = torch.clamp(distribution2.sample(), -2, 2)
-        return [action1, action2], [distribution1, distribution2]
+        return [action1, action2]
     
 class Critic(nn.Module):
     def __init__(self):
@@ -78,11 +78,10 @@ class Critic(nn.Module):
         return self.fc3(x)   
     
 class SimpleEnvGlobalNetwork(nn.Module):
-    def __init__(self, learningRate = LEARNINGRATE):
+    def __init__(self):
         super().__init__()
         self.actor = Actor()
         self.critic = Critic()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr = learningRate)
         
 class SharedAdam(torch.optim.Adam):
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.99), eps=1e-8,
@@ -113,15 +112,13 @@ class SimpleEnvWorker(mp.Process):
         
     def download(self):
         # Update WorkerNetwork with GlobalNetwork
-        print(self.network.state_dict())
         self.network.load_state_dict(self.globalNetwork.state_dict())
-        print(self.network.state_dict())
         pass
     
     def upload(self, ActorAccumulatedGradient, CriticAccumulatedGradient):
         # Update GlobalNetwork with Accumulated Gradients
 
-        self.globalNetwork.optimizer.zero_grad()
+        self.opt.zero_grad()
 
         for globalParam, grad in zip(self.globalNetwork.actor.parameters(), ActorAccumulatedGradient):
             globalParam.grad = grad.clone()
@@ -129,33 +126,37 @@ class SimpleEnvWorker(mp.Process):
         for globalParam, grad in zip(self.globalNetwork.critic.parameters(), CriticAccumulatedGradient):
             globalParam.grad = grad.clone()
 
-        self.globalNetwork.optimizer.step()
+        self.opt.step()
         pass
     
-    def calculateGradient(self, NStepReturn:float, state, action, actionDist):
+    def calculateGradient(self, NStepReturn:float, state, action):
         
         # Critic Loss
         value = self.network.critic.forward(state)
         criticLoss = F.mse_loss(value, NStepReturn)
-
+        
         # Actor Loss
-        [dist1, dist2] = actionDist
+        mu, sigma = self.network.actor.forward(state)
+        mu1, mu2 = mu[0], mu[1]
+        sigma1, sigma2 = sigma[0], sigma[1]
+        distribution1 = torch.distributions.Normal(mu1, sigma1)
+        distribution2 = torch.distributions.Normal(mu2, sigma2)
         [action1, action2] = action
         action1 = torch.tensor([action1], dtype=torch.float32)
         action2 = torch.tensor([action2], dtype=torch.float32)
-        logProb1 = dist1.log_prob(action1).sum(-1).unsqueeze(-1)
-        logProb2 = dist2.log_prob(action2).sum(-1).unsqueeze(-1)
+        logProb1 = distribution1.log_prob(action1).sum(-1).unsqueeze(-1)
+        logProb2 = distribution2.log_prob(action2).sum(-1).unsqueeze(-1)
         advantage = (NStepReturn - value).detach()  # NStepReturn - V
-        entropy1 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(dist1.scale)           # Distribution Entropy terms
-        entropy2 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(dist2.scale)
+        entropy1 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(distribution1.scale)           # Distribution Entropy terms
+        entropy2 = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(distribution2.scale)
         actorLoss = -(logProb1 * advantage + logProb2 * advantage)-ENTROPYWEIGHT*(entropy1+entropy2)
 
         # Total Loss
         total_loss = (actorLoss + criticLoss).mean()
 
         # Calculate Gradients for Back Propagation
-        self.network.zero_grad()
-        total_loss.backward(retain_graph=True)
+        self.opt.zero_grad()
+        total_loss.backward()
         
         actorGradients = [param.grad.data for param in self.network.actor.parameters()]
         criticGradients = [param.grad.data for param in self.network.critic.parameters()]
@@ -169,7 +170,6 @@ class SimpleEnvWorker(mp.Process):
         totalRewardList = []
         stateList = []
         actionList = []
-        actionDistList = []
         saveDirectory = "C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\Bullet_2023\\Data\\NN"
         os.makedirs(saveDirectory, exist_ok=True)
         while self.episodeNum < MAXEPISODE:
@@ -182,11 +182,10 @@ class SimpleEnvWorker(mp.Process):
             for i in range(MAXSTEP): 
                 stateList.append(state)
                 stateOld = state
-                action, actionDist = self.network.actor.selectAction(stateOld)
+                action = self.network.actor.selectAction(stateOld)
                 action = [action[0].item(), action[1].item()]
                 state, reward, done = self.env.step(action)
                 actionList.append(action)
-                actionDistList.append(actionDist)
                 
             # End episode if reached MAXSTEP
                 if i == MAXSTEP-1:
@@ -199,15 +198,14 @@ class SimpleEnvWorker(mp.Process):
                     actorAccumulatedGradient = [torch.zeros_like(param) for param in self.network.actor.parameters()]
                     criticAccumulatedGradient = [torch.zeros_like(param) for param in self.network.critic.parameters()]
                     v = self.globalNetwork.critic.forward(state)
-                    nStepReturn = v
+                    nStepReturn = v.detach()
                     
             # Update Accumulated Gradient
                     for j in range(len(stateList)-1,-1,-1):
-                        nStepReturn = GAMMA*nStepReturn + rewardList[j]             
-                        actorGradient, criticGradient = self.calculateGradient(nStepReturn, stateList[j], actionList[j], actionDistList[j])
+                        nStepReturn = GAMMA*nStepReturn + rewardList[j]  
+                        actorGradient, criticGradient = self.calculateGradient(nStepReturn, stateList[j], actionList[j])
                         actorAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(actorAccumulatedGradient, actorGradient)]
-                        criticAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(criticAccumulatedGradient, criticGradient)]
-                    self.network.zero_grad()         
+                        criticAccumulatedGradient = [accumulated_grad + new_grad for accumulated_grad, new_grad in zip(criticAccumulatedGradient, criticGradient)]      
             # Push and Pull
                     self.upload(actorAccumulatedGradient, criticAccumulatedGradient)
                     self.download()
@@ -215,7 +213,6 @@ class SimpleEnvWorker(mp.Process):
                     rewardList.clear()
                     stateList.clear()
                     actionList.clear()
-                    actionDistList.clear()
             # when episode ends during MAXSTEP
                     if done:
                         break     
@@ -249,34 +246,35 @@ def worker(globalNetwork, workerId, mapNum, Opt):
     simpleWorker.run()
     print(f"-------------------------------------------------------Work {workerId} Completed-------------------------------------------------------")
 
-# if __name__ == "__main__":
-#     mp.set_start_method('spawn')
-#     GlobalNetwork = SimpleEnvGlobalNetwork()
-#     GlobalNetwork.share_memory()
-#     Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
-    
-#     process =[]
-    
-#     # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
-#     # WorkerProcess.start()
-#     # process.append(WorkerProcess)
-    
-#     for i in range(0,2):
-#         WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4, Opt))
-#         WorkerProcess.start()
-#         process.append(WorkerProcess)
-
-#     for proc in process:
-#         proc.join()
-
-def main():
-    env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
-
-    GlobalNetwork = SimpleEnvGlobalNetwork()
-    Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
-    worker = SimpleEnvWorker(GlobalNetwork, env, 0, Opt)
-
-    worker.run()
-
 if __name__ == "__main__":
-    main()
+    torch.autograd.set_detect_anomaly(True)
+    mp.set_start_method('spawn')
+    GlobalNetwork = SimpleEnvGlobalNetwork()
+    GlobalNetwork.share_memory()
+    Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
+    
+    process =[]
+    
+    # WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0))
+    # WorkerProcess.start()
+    # process.append(WorkerProcess)
+    
+    for i in range(0,2):
+        WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, i, i%4, Opt))
+        WorkerProcess.start()
+        process.append(WorkerProcess)
+
+    for proc in process:
+        proc.join()
+
+# def main():
+#     env = SimpleWorldTL.simpleMapEnv(mapNum = 4)
+
+#     GlobalNetwork = SimpleEnvGlobalNetwork()
+#     Opt = SharedAdam(GlobalNetwork.parameters(),lr=1e-4, betas=(0.95, 0.999))
+#     worker = SimpleEnvWorker(GlobalNetwork, env, 0, Opt)
+
+#     worker.run()
+
+# if __name__ == "__main__":
+#     main()
