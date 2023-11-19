@@ -352,7 +352,7 @@ if __name__ == "__main__":
     
     process =[]
     
-    WorkerProcess = mp.Process(target=workerGUI, args = (GlobalNetwork, 0, 0, Opt))
+    WorkerProcess = mp.Process(target=worker, args = (GlobalNetwork, 0, 0, Opt))
     WorkerProcess.start()
     process.append(WorkerProcess)
     for i in range(1,16):
