@@ -19,6 +19,8 @@ RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
 STEPTIME = 1
 
+MAXSTEP = 1000
+
 
 def randomQuaternionZaxis(RangeList):
     """
@@ -322,7 +324,7 @@ class Map:
         self.labelManager.addObject(self.target.id, 3)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
-        
+        self.labelManager.addObject(self.agent.id, 9)
     def simpleMap01Reset(self):
         # Randomly select rangeList for agent and target
         [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
@@ -345,7 +347,7 @@ class Map:
         self.labelManager.addObject(self.target.id, 3)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
-        
+        self.labelManager.addObject(self.agent.id, 9)
     def simpleMap02Reset(self):
         # Randomly select rangeList for agent and target
         [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
@@ -576,7 +578,7 @@ class simpleMapEnv(gym.Env):
     def __init__(self, mapNum:int):
         super(simpleMapEnv, self).__init__()
         # Define Observation Space and Action Space
-        self.observation_space = spaces.Box(low=-100, high=100, shape=(28,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-100, high=100, shape=(27,), dtype=np.float32)
         self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
         
         # Basic World configuration
@@ -622,10 +624,11 @@ class simpleMapEnv(gym.Env):
         # Set Initial State
         self.initialState = self.world.agent.sensorData 
         self.initialDis = self.world.agent.agentTargetDistanceSS
-
+        self.info = {}
         # method for detecting time
         self.countStep = 0
         self.timeSpend = []
+
 
     def step(self, action):
         # Perform Action. Change x/y velocity with action
@@ -641,10 +644,17 @@ class simpleMapEnv(gym.Env):
         self.countStep += 1
         
         reward = 2 if done else -0.001 
+        if self.countStep >= MAXSTEP:
+            reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
+            done = True
+            truncated = True
+            print(self.worlds.serverId)
+        else:
+            truncated = False
+
+        return observation, reward, done, truncated, self.info
         
-        return observation, reward, done
-        
-    def reset(self):
+    def reset(self, seed = None):
         if self.mapNum == 1:
             self.world.simpleMap01Reset()
         elif self.mapNum == 2:
@@ -659,6 +669,8 @@ class simpleMapEnv(gym.Env):
         # Save and Reset Time
         self.timeSpend.append(self.countStep*STEPTIME)
         self.countStep = 0
+        
+        return self.initialState, {}
 
     # Collision Detection Logic
     def targetCollision(self):

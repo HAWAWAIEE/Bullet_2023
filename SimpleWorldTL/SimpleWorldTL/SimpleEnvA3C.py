@@ -83,47 +83,47 @@ class SimpleEnvGlobalNetwork(nn.Module):
         self.actor = Actor()
         self.critic = Critic()
         
-# class SharedAdam(torch.optim.Adam):
-#     def __init__(self, params, lr=LEARNINGRATE, betas=(0.9, 0.99), eps=1e-8,
-#                  weight_decay=0):
-#         super(SharedAdam, self).__init__(params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-#         # State initialization
-#         for group in self.param_groups:
-#             for p in group['params']:
-#                 state = self.state[p]
-#                 state['step'] = 0
-#                 state['exp_avg'] = torch.zeros_like(p.data)
-#                 state['exp_avg_sq'] = torch.zeros_like(p.data)
-
-#                 # share in memory
-#                 state['exp_avg'].share_memory_()
-#                 state['exp_avg_sq'].share_memory_()
-                
 class SharedAdam(torch.optim.Adam):
-    def __init__(self, params, lr=LEARNINGRATE, betas=(0.9, 0.999), eps=1e-8, weight_decay=0, amsgrad=False):
-        super(SharedAdam, self).__init__(
-            params, lr=lr, betas=betas, eps=eps, 
-            weight_decay=weight_decay, amsgrad=amsgrad)
+    def __init__(self, params, lr=LEARNINGRATE, betas=(0.9, 0.99), eps=1e-8,
+                 weight_decay=0):
+        super(SharedAdam, self).__init__(params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        # State initialization
         for group in self.param_groups:
             for p in group['params']:
                 state = self.state[p]
                 state['step'] = 0
-                state['shared_step'] = torch.zeros(1).share_memory_()
-                state['exp_avg'] = torch.zeros_like(p.data).share_memory_()
-                state['exp_avg_sq'] = torch.zeros_like(p.data).share_memory_()
-                if weight_decay:
-                    state['weight_decay'] = torch.zeros_like(p.data).share_memory_()
-                if amsgrad:
-                    state['max_exp_avg_sq'] = torch.zeros_like(p.data).share_memory_()
+                state['exp_avg'] = torch.zeros_like(p.data)
+                state['exp_avg_sq'] = torch.zeros_like(p.data)
 
-    def step(self, closure=None):
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                self.state[p]['steps'] = self.state[p]['shared_step'].item()
-                self.state[p]['shared_step'] += 1
-        super().step(closure)
+                # share in memory
+                state['exp_avg'].share_memory_()
+                state['exp_avg_sq'].share_memory_()
+                
+# class SharedAdam(torch.optim.Adam):
+#     def __init__(self, params, lr=LEARNINGRATE, betas=(0.9, 0.999), eps=1e-8, weight_decay=0, amsgrad=False):
+#         super(SharedAdam, self).__init__(
+#             params, lr=lr, betas=betas, eps=eps, 
+#             weight_decay=weight_decay, amsgrad=amsgrad)
+#         for group in self.param_groups:
+#             for p in group['params']:
+#                 state = self.state[p]
+#                 state['step'] = 0
+#                 state['shared_step'] = torch.zeros(1).share_memory_()
+#                 state['exp_avg'] = torch.zeros_like(p.data).share_memory_()
+#                 state['exp_avg_sq'] = torch.zeros_like(p.data).share_memory_()
+#                 if weight_decay:
+#                     state['weight_decay'] = torch.zeros_like(p.data).share_memory_()
+#                 if amsgrad:
+#                     state['max_exp_avg_sq'] = torch.zeros_like(p.data).share_memory_()
+
+#     def step(self, closure=None):
+#         for group in self.param_groups:
+#             for p in group['params']:
+#                 if p.grad is None:
+#                     continue
+#                 self.state[p]['steps'] = self.state[p]['shared_step'].item()
+#                 self.state[p]['shared_step'] += 1
+#         super().step(closure)
 
 class SimpleEnvWorker(mp.Process):
     def __init__(self, GlobalNetwork, env, workerid, opt):
