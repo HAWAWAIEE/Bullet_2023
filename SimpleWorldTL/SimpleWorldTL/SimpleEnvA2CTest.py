@@ -39,7 +39,7 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
 env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=16, env_kwargs={'mapNum': 3})
 model = A2C('MlpPolicy', env, verbose=1)
 
-save_callback = SaveOnBestTrainingRewardCallback(check_freq=100000, save_path="C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\NN")
+save_callback = SaveOnBestTrainingRewardCallback(check_freq=10000, save_path="C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\NN")
 
 model.learn(total_timesteps=1000000, callback=save_callback)
 model.save("C:\\Users\\shann\\Desktop\\PROGRAMMING\\projects\\Python\\NN")
