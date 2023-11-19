@@ -643,7 +643,8 @@ class simpleMapEnv(gym.Env):
         reward = 2 if done else -0.001 
         
         return observation, reward, done
-    
+        
+
     def reset(self):
         if self.mapNum == 1:
             self.world.simpleMap01Reset()
