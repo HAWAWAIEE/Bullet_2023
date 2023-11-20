@@ -26,7 +26,7 @@
     <Compile Include="BigWorldTest20.py" />
     <Compile Include="ObjectValidity.py" />
     <Compile Include="SimpleEnvA2CTest.py" />
-    <Compile Include="SimpleEnvA2C.py" />
+    <Compile Include="BigEnvA2C.py" />
     <Compile Include="SimpleEnvA3C.py" />
     <Compile Include="simpletest.py" />
     <Compile Include="utils.py" />
