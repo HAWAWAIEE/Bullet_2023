@@ -405,7 +405,7 @@ class Map:
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
         self.labelManager.addObject(self.agent.id, 9)
-    def simpleMap01Reset(self):
+    def BigBigMap01Reset(self):
         # Randomly select rangeList for agent and target
         [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
         # Reset Agent and Target
@@ -431,9 +431,9 @@ class bigMapEnv(gym.Env):
         else:
             # Generate BigBigMap01 world
             self.world = Map()
-            self.world.generateSize20x20Map()
-            self.world.simpleMap04()      
-            self.world.simpleMap04Reset()
+            self.world.generateSize80x80Map()
+            self.world.BigBigMap01()      
+            self.world.BigBigMap01Reset()
             
         """
         Following Properties are for Recording Episodic Results
@@ -476,13 +476,9 @@ class bigMapEnv(gym.Env):
         
     def reset(self, seed = None):
         if self.mapNum == 1:
-            self.world.simpleMap01Reset()
-        elif self.mapNum == 2:
-            self.world.simpleMap02Reset()
-        elif self.mapNum == 3:
-            self.world.simpleMap03Reset()
+            self.world.BigMap01Reset()
         else:
-            self.world.simpleMap04Reset()
+            self.world.BigBigMap01Reset()
         # Set Initial State
         self.initialState = self.world.agent.sensorData 
         self.initialDis = self.world.agent.agentTargetDistanceSS
