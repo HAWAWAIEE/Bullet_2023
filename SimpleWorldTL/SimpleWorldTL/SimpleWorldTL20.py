@@ -17,7 +17,7 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-STEPTIME = 120
+STEPTIME = 30
 
 MAXSTEP = 1000
 
@@ -529,7 +529,7 @@ class simpleMapEnv(gym.Env):
         super(simpleMapEnv, self).__init__()
         # Define Observation Space and Action Space
         self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
-        self.action_space = spaces.Box(low = -1, high = 1, shape=(2,), dtype = np.float32)
+        self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
         
         # Basic World configuration
         self.mapNum = mapNum
@@ -583,6 +583,7 @@ class simpleMapEnv(gym.Env):
 
     def step(self, action):
         # Perform Action. Change x/y velocity with action
+        action = [max(-2, min(x, 2)) for x in action]
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
         self.world.agent.observation()
         observation = self.world.agent.sensorData

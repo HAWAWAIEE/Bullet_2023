@@ -29,6 +29,7 @@
     <Compile Include="BigEnvA2C.py" />
     <Compile Include="SimpleEnvA3C.py" />
     <Compile Include="simpletest.py" />
+    <Compile Include="SimpleWorldTL20ActionClamp.py" />
     <Compile Include="utils.py" />
     <Compile Include="VerySimpleWorldTL.py" />
     <Compile Include="SimpleWorldTL20.py" />
