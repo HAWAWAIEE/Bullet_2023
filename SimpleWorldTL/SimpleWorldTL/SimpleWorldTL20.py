@@ -305,7 +305,7 @@ class Map:
 
     def generateSize20x20Map(self):
         # Loading 20x20 Size Map
-        planeId = self.bulletClient.loadURDF("Plane_10x10.urdf")
+        planeId = self.bulletClient.loadURDF("CubePlane_10x10x4.urdf")
         self.labelManager.addObject(planeId, 4)
         WallId1 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [0,10,0])
         self.labelManager.addObject(WallId1, 2)
@@ -428,7 +428,7 @@ class MapGUI:
 
     def generateSize20x20Map(self):
         # Loading 20x20 Size Map
-        planeId = self.bulletClient.loadURDF("Plane_10x10.urdf")
+        planeId = self.bulletClient.loadURDF("CubePlane_10x10x4.urdf")
         self.labelManager.addObject(planeId, 4)
         WallId1 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [0,10,0])
         self.labelManager.addObject(WallId1, 2)
@@ -443,7 +443,7 @@ class MapGUI:
 
     # Functions for simpleMap01
     def simpleMap01(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.3,0.3],[0,0]],[[-7,7],[-3,-7],[0.3,0.3],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_4x1x2.urdf", self.bulletClient)
         self.labelManager.addObject(obstacle1.id, 3)
@@ -462,7 +462,7 @@ class MapGUI:
         
     # Functions for simpleMap02
     def simpleMap02(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.3,0.3],[0,0]],[[-7,7],[-3,-7],[0.3,0.3],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_1x1x2.urdf", self.bulletClient, [0,0,0])
         self.labelManager.addObject(obstacle1.id, 3)
@@ -485,7 +485,7 @@ class MapGUI:
         
 # Functions for simpleMap03
     def simpleMap03(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.3,0.3],[0,0]],[[-7,7],[-3,-7],[0.3,0.3],[0,0]]]
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
         self.labelManager.addObject(self.target.id, 5)

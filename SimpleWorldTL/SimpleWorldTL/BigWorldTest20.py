@@ -17,7 +17,7 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-STEPTIME = 30
+STEPTIME = 60
 
 MAXSTEP = 2000
 
@@ -348,7 +348,7 @@ class Map:
         9 rangeList for Target&Agent Spawn location
         Many Obstacles
         """
-        self.rangeListList = [[[13,17],[13,17],[0.2,0,2],[0,0]],[[-17,-13],[13,17],[0.4,0.4],[0,0]],[[13,17],[-17,-13],[0.4,0.4],[0,0]],[[-17,-13],[-17,-13],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[13,17],[13,17],[0.25,0,25],[0,0]],[[-17,-13],[13,17],[0.25,0.25],[0,0]],[[13,17],[-17,-13],[0.25,0.25],[0,0]],[[-17,-13],[-17,-13],[0.25,0.25],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_1x6x4.urdf", self.bulletClient)
         self.labelManager.addObject(obstacle1.id, 3)
