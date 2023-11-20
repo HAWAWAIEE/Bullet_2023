@@ -51,7 +51,7 @@ def train():
     # env = make_vec_env(env_id, n_envs=16, env_kwargs=None, make_env = make_env, monitor_dir = log_dir,wrapper_class = Monitor)
     model = A2C('MlpPolicy', env, verbose=1, n_steps = 10, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
 
-    model.learn(total_timesteps=6000000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
+    model.learn(total_timesteps=50000000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
     model.save(path = save_dir,include="SimpleWorldTL_")
     torch.save(model.policy.state_dict(), r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\NN\torchver.pth")
     env.close()
