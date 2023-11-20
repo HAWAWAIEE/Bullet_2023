@@ -19,7 +19,7 @@ RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
 STEPTIME = 30
 
-MAXSTEP = 1000
+MAXSTEP = 2000
 
 
 def randomQuaternionZaxis(RangeList):
@@ -412,9 +412,9 @@ class Map:
         self.agent.reset(1)
         self.target.reset(1)
         
-class simpleMapEnv(gym.Env):
+class BigMapEnv(gym.Env):
     def __init__(self, mapNum:int):
-        super(simpleMapEnv, self).__init__()
+        super(BigMapEnv, self).__init__()
         # Define Observation Space and Action Space
         self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
         self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
@@ -422,33 +422,14 @@ class simpleMapEnv(gym.Env):
         # Basic World configuration
         self.mapNum = mapNum
         if mapNum == 1:
-            # Generate simpleMap01 world
+            # Generate BigMap01 world
             self.world = Map()
-            self.world.generateSize20x20Map()
-            self.world.simpleMap01()      
-            self.world.simpleMap01Reset()
-        elif mapNum == 2:
-            # Generate simpleMap02 world
-            self.world = Map()
-            self.world.generateSize20x20Map()
-            self.world.simpleMap02()      
-            self.world.simpleMap02Reset()
-        elif mapNum == 3:
-            # Generate simpleMap03 world
-            self.world = Map()
-            self.world.generateSize20x20Map()
-            self.world.simpleMap03()      
-            self.world.simpleMap03Reset()
-            
-        # Generate MapGUI world
-        elif mapNum == 4:
-            self.world = MapGUI()
-            self.world.generateSize20x20Map()
-            self.world.simpleMap04()      
-            self.world.simpleMap04Reset()            
+            self.world.generateSize40x40Map()
+            self.world.BigMap01()      
+            self.world.BigMap01Reset()    
             
         else:
-            # Generate simpleMap01 world
+            # Generate BigBigMap01 world
             self.world = Map()
             self.world.generateSize20x20Map()
             self.world.simpleMap04()      
@@ -483,7 +464,7 @@ class simpleMapEnv(gym.Env):
             done = self.targetCollision()
         self.countStep += 1
         
-        reward = 2 if done else -0.001 
+        reward = 4 if done else -0.001 
         if self.countStep >= MAXSTEP:
             reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
             done = True
