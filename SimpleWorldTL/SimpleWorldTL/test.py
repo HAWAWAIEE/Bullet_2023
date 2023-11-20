@@ -1,29 +1,35 @@
-import pybullet as p
-from pybullet_utils import bullet_client
-import torch.multiprocessing as mp
-import time
+import os
+import gymnasium as gym
+import torch
+import SimpleWorldTL28
+from stable_baselines3 import A2C
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import BaseCallback
 
-def start_simulation():
-    
-    bullet_server = bullet_client.BulletClient(connection_mode=p.SHARED_MEMORY_SERVER)
-    bullet_server.setGravity(0, 0, -9.81)
-    while True:
-        bullet_server.stepSimulation()
-        time.sleep(1./240)
+from stable_baselines3 import SAC
+from stable_baselines3.common.callbacks import CheckpointCallback
 
-def connect_to_gui():
-    
-    p.connect(p.SHARED_MEMORY_GUI)
-    while True:
-        p.stepSimulation()
-        time.sleep(1./240)
+log_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\Log"
+tensorboard_log_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\Tensor"
+save_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\NN\nn"
+os.makedirs(log_dir, exist_ok=True)
+os.makedirs(tensorboard_log_dir, exist_ok=True)
 
-if __name__ == '__main__':
-    
-    simulation_process = mp.Process(target=start_simulation)
-    simulation_process.start()
+checkpoint_callback = CheckpointCallback(
+  save_freq=50000,
+  save_path=log_dir
+)
 
-    time.sleep(3)
-    connect_to_gui()
 
-    simulation_process.join()
+env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=16, env_kwargs={'mapNum': 1}, monitor_dir = log_dir,wrapper_class = Monitor)
+model = A2C('MlpPolicy', env, verbose=1, n_steps = 10, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
+
+model.learn(total_timesteps=500000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
+model.save(save_dir,"SimpleWorldTL_")
+env.close()
+
+print("model finished!")

@@ -22,11 +22,12 @@ from stable_baselines3.common.callbacks import BaseCallback
 import matplotlib.pyplot as plt
 
 log_dir = r"C:\Users\shann\Desktop\PROGRAMMING\projects\Python\Results\Log"
+tensorboard_log_dir = "C:/Users/shann/Desktop/PROGRAMMING/projects/Python/Results/Tensor"
 os.makedirs(log_dir, exist_ok=True)
-env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=16, env_kwargs={'mapNum': 3}, monitor_dir = log_dir,wrapper_class = Monitor)
-model = A2C('MlpPolicy', env, verbose=1)
+env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=16, env_kwargs={'mapNum': 1}, monitor_dir = log_dir,wrapper_class = Monitor)
+model = A2C('MlpPolicy', env, verbose=1, n_steps = 10, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
 
-model.learn(total_timesteps=1000000)
+model.learn(total_timesteps=10000000)
 model.save(r"C:\Users\shann\Desktop\PROGRAMMING\projects\Python\Results\NN\nn")
 env.close()
 
