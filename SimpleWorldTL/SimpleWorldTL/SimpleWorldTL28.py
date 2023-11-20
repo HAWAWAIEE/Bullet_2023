@@ -632,7 +632,7 @@ class simpleMapEnv(gym.Env):
         # method for detecting time
         self.countStep = 0
         self.timeSpend = []
-        print(f"------------------Map : {self.MapNum}---ID : {self.world.serverId}------------------")
+        print(f"------------------Map : {self.mapNum}---ID : {self.world.serverId}------------------")
 
 
     def step(self, action):
