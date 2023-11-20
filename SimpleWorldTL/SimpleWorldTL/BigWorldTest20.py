@@ -412,9 +412,9 @@ class Map:
         self.agent.reset(1)
         self.target.reset(1)
         
-class BigMapEnv(gym.Env):
+class bigMapEnv(gym.Env):
     def __init__(self, mapNum:int):
-        super(BigMapEnv, self).__init__()
+        super().__init__()
         # Define Observation Space and Action Space
         self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
         self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
