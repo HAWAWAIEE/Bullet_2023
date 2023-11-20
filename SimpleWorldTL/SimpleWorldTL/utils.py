@@ -1,12 +1,14 @@
 import torch
 from torch import nn
+from stable_baselines3.common.distributions import DiagGaussianDistribution
+
 
 def nnKeyChanger(model_state_dict):
     """
     change Stable Baselines 3's parameters to Torch basic form
     """
     new_state_dict = {}
-    
+    log_std = []
     for key in model_state_dict.keys():
         if 'log_std' in key:
             continue
@@ -50,10 +52,19 @@ class SB3ToTorchNN(nn.Module):
 
         std = torch.exp(log_std)
 
-        dist = torch.distributions.Normal(mean, std)
+        dist = DiagGaussianDistribution
         actions = dist.sample()
         return actions
         
     def valueForward(self,x):
         state_value = self.critic(x) 
         return state_value
+    
+def PrintPth(path):
+    policy_dict = torch.load(path)
+    for key, value in policy_dict.items():
+        print(f"{key}: {value}")
+
+
+policy_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\policy.pth"  
+PrintPth(policy_path)

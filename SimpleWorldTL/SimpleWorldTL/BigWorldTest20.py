@@ -395,7 +395,7 @@ class Map:
         
     # Functions for BigBigMap01
     def BigBigMap01(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.4,0.4],[0,0]],[[-7,7],[-3,-7],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_4x1x2.urdf", self.bulletClient)
         self.labelManager.addObject(obstacle1.id, 3)
@@ -451,6 +451,7 @@ class bigMapEnv(gym.Env):
 
 
     def step(self, action):
+        action = [max(-2, min(x, 2)) for x in action]
         # Perform Action. Change x/y velocity with action
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
         self.world.agent.observation()
