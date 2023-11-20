@@ -425,33 +425,34 @@ class MapGUI:
         self.mapRadius = 0
         # Set FPS
         self.bulletClient.setTimeStep(1/60)
-        
+
     def generateSize20x20Map(self):
         # Loading 20x20 Size Map
         planeId = self.bulletClient.loadURDF("Plane_10x10.urdf")
         self.labelManager.addObject(planeId, 4)
         WallId1 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [0,10,0])
-        self.labelManager.addObject(WallId1, 1)
+        self.labelManager.addObject(WallId1, 2)
         WallId2 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [0,-10,0])
-        self.labelManager.addObject(WallId2, 1)
+        self.labelManager.addObject(WallId2, 2)
         WallId3 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [10,0,0], WALLORIENTATION)
-        self.labelManager.addObject(WallId3, 1)
+        self.labelManager.addObject(WallId3, 2)
         WallId4 = self.bulletClient.loadURDF("Wall_10x1x5.urdf", [-10,0,0], WALLORIENTATION)
-        self.labelManager.addObject(WallId4, 1)        
+        self.labelManager.addObject(WallId4, 2) 
         self.mapScale = 400
         self.mapRadius = 20
+
     # Functions for simpleMap01
     def simpleMap01(self):
-        self.rangeListList = [[[-6,6],[3,6],[0.4,0.4],[0,0]],[[-6,6],[-3,-6],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_4x1x2.urdf", self.bulletClient)
-        self.labelManager.addObject(obstacle1.id, 2)
+        self.labelManager.addObject(obstacle1.id, 3)
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
-        self.labelManager.addObject(self.target.id, 3)
+        self.labelManager.addObject(self.target.id, 5)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
-        
+        self.labelManager.addObject(self.agent.id, 9)
     def simpleMap01Reset(self):
         # Randomly select rangeList for agent and target
         [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
@@ -461,20 +462,20 @@ class MapGUI:
         
     # Functions for simpleMap02
     def simpleMap02(self):
-        self.rangeListList = [[[-6,6],[3,6],[0.4,0.4],[0,0]],[[-6,6],[-3,-6],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_1x1x2.urdf", self.bulletClient, [0,0,0])
-        self.labelManager.addObject(obstacle1.id, 2)
+        self.labelManager.addObject(obstacle1.id, 3)
         obstacle2 = Obstacle("Obstacle_Cube_1x1x2.urdf", self.bulletClient, [5,0,0])
-        self.labelManager.addObject(obstacle2.id, 2)
+        self.labelManager.addObject(obstacle2.id, 3)
         obstacle3 = Obstacle("Obstacle_Cube_1x1x2.urdf", self.bulletClient, [-5,0,0])
-        self.labelManager.addObject(obstacle3.id, 2)
+        self.labelManager.addObject(obstacle3.id, 3)
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
-        self.labelManager.addObject(self.target.id, 3)
+        self.labelManager.addObject(self.target.id, 5)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
-        
+        self.labelManager.addObject(self.agent.id, 9)
     def simpleMap02Reset(self):
         # Randomly select rangeList for agent and target
         [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
@@ -484,10 +485,10 @@ class MapGUI:
         
 # Functions for simpleMap03
     def simpleMap03(self):
-        self.rangeListList = [[[-6,6],[3,6],[0.4,0.4],[0,0]],[[-6,6],[-3,-6],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
-        self.labelManager.addObject(self.target.id, 3)
+        self.labelManager.addObject(self.target.id, 5)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
         
@@ -500,15 +501,15 @@ class MapGUI:
         
 # Functions for simpleMap04
     def simpleMap04(self):
-        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.4,0.4],[0,0]],[[-7,-2.5],[2.5,7],[0.4,0.4],[0,0]],[[2.5,7],[-7,-2.5],[0.4,0.4],[0,0]],[[2.5, 7],[2.5, 7],[0.4,0.4],[0,0]]]
+        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.2,0.2],[0,0]],[[-7,-2.5],[2.5,7],[0.2,0.2],[0,0]],[[2.5,7],[-7,-2.5],[0.2,0.2],[0,0]],[[2.5, 7],[2.5, 7],[0.2,0.2],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_5x1x2.urdf", self.bulletClient, BaseAngle = WALLORIENTATION)
-        self.labelManager.addObject(obstacle1.id, 2)
+        self.labelManager.addObject(obstacle1.id, 3)
         obstacle2 = Obstacle("Obstacle_Cube_5x1x2.urdf", self.bulletClient)
-        self.labelManager.addObject(obstacle2.id, 2)
+        self.labelManager.addObject(obstacle2.id, 3)
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
-        self.labelManager.addObject(self.target.id, 3)
+        self.labelManager.addObject(self.target.id, 5)
         # Loading Agent
         self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
         
@@ -521,6 +522,9 @@ class MapGUI:
 
 
 class simpleMapEnv(gym.Env):
+    """
+    Input Param : mapNum
+    """
     def __init__(self, mapNum:int):
         super(simpleMapEnv, self).__init__()
         # Define Observation Space and Action Space

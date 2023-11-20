@@ -2,23 +2,72 @@ import torch
 from torch import nn
 from stable_baselines3 import A2C
 import gymnasium as gym
-import SimpleWorldTL28
+import SimpleWorldTL20
 from stable_baselines3.common.env_util import make_vec_env
 
 policy_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\policy.pth"
 variables_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\pytorch_variables.pth"
 model_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN.zip"
+input_dim = 20
+output_dim = 2
 
-env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=1, env_kwargs={'mapNum': 1})
+def nnKeyChanger(model_state_dict):
+    new_state_dict = {}
+    for key in model_state_dict.keys():
+        new_key = key
+        if 'mlp_extractor.policy_net' in key:
+            new_key = key.replace('mlp_extractor.policy_net', 'actor')
+        elif 'mlp_extractor.value_net' in key:
+            new_key = key.replace('mlp_extractor.value_net', 'critic')
+        elif 'action_net' in key:
+            new_key = key.replace('action_net', 'actor.4')
+        elif 'value_net' in key:
+            new_key = key.replace('value_net', 'critic.4')
+        new_state_dict[new_key] = model_state_dict[key]
+    return new_state_dict
 
-model = A2C('MlpPolicy', env, verbose=1)
-model.learn(total_timesteps=50000)
+class SB3ToTorchNN(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.actor = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, output_dim)
+        )
+        
+        self.critic = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, 1)
+        )
 
-state_dict = model.policy.state_dict()
+    def actorForward(self, x):
+        mean = self.actor(x)
+        log_std = torch.zeros_like(mean)
 
-for name, param in state_dict.items():
-    print(f"Layer: {name}, Size: {param.size()}")
+        std = torch.exp(log_std)
 
-obs = env.reset()
-action, _states = model.predict(obs, deterministic=True)
-print("Action:", action)
+        dist = torch.distributions.Normal(mean, std)
+        actions = dist.sample()
+        return actions
+        
+    def valueForward(self,x):
+        state_value = self.critic(x) 
+        return state_value
+
+model = SB3ToTorchNN(input_dim, output_dim)
+model_state_dict = nnKeyChanger(torch.load(policy_file_path, map_location=torch.device('cpu')))
+model.load_state_dict(model_state_dict)
+env = SimpleWorldTL20(4)
+
+while(True):
+    observation = env.reset()
+    done = False
+    while not done:
+        action = model.actorForward(torch.from_numpy(observation).float())
+
+        observation, reward, done, info = env.step(action)
