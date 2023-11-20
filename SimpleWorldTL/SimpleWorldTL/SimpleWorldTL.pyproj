@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>f9a9d7b0-c054-4079-aa2d-61b32a88dcc7</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>SimpleEnvA2CTest.py</StartupFile>
+    <StartupFile>temp.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +29,7 @@
     <Compile Include="SimpleEnvA2C.py" />
     <Compile Include="SimpleEnvA3C.py" />
     <Compile Include="simpletest.py" />
+    <Compile Include="utils.py" />
     <Compile Include="VerySimpleWorldTL.py" />
     <Compile Include="SimpleWorldTL20.py" />
     <Compile Include="SimpleWorldTL.py" />

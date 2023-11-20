@@ -1,19 +1,10 @@
 import torch
 from torch import nn
-from stable_baselines3 import A2C
-import time
-import gymnasium as gym
-import numpy as np
-import SimpleWorldTL20
-from stable_baselines3.common.env_util import make_vec_env
-
-policy_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\policy.pth"
-variables_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\pytorch_variables.pth"
-model_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN.zip"
-input_dim = 20
-output_dim = 2
 
 def nnKeyChanger(model_state_dict):
+    """
+    change Stable Baselines 3's parameters to Torch basic form
+    """
     new_state_dict = {}
     
     for key in model_state_dict.keys():
@@ -32,6 +23,9 @@ def nnKeyChanger(model_state_dict):
     return new_state_dict
 
 class SB3ToTorchNN(nn.Module):
+    """
+    Trained A2c Global Network Form
+    """
     def __init__(self, input_dim, output_dim):
         super().__init__()
         self.actor = nn.Sequential(
@@ -63,17 +57,3 @@ class SB3ToTorchNN(nn.Module):
     def valueForward(self,x):
         state_value = self.critic(x) 
         return state_value
-
-model = SB3ToTorchNN(input_dim, output_dim)
-model_state_dict = nnKeyChanger(torch.load(policy_file_path, map_location=torch.device('cpu')))
-model.load_state_dict(model_state_dict)
-env = SimpleWorldTL20.simpleMapEnv(4)
-
-while(True):
-    observation, _ = env.reset()
-    done = False
-    while not done:
-        actual_observation = torch.from_numpy(np.array(observation)).float()
-        action = model.actorForward(actual_observation)
-        observation, reward, done, info, truncated = env.step(action)
-    print(reward)
