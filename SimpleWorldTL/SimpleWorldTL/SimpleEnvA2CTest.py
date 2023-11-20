@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch.multiprocessing as mp
 import torch.optim as optim
 import multiprocessing
-import SimpleWorldTL28
+import BigWorldTest20
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
@@ -36,7 +36,7 @@ checkpoint_callback = CheckpointCallback(
 def make_env(rank, seed=0):
     def _init():
         mapNum = rank % 4
-        env = SimpleWorldTL28.simpleMapEnv(mapNum=mapNum)
+        env = BigWorldTest20.bigMapEnv(mapNum=mapNum)
         env = Monitor(env)
         return env
     return _init
@@ -53,8 +53,8 @@ def train():
     # env = make_vec_env(env_id, n_envs=16, env_kwargs=None, make_env = make_env, monitor_dir = log_dir,wrapper_class = Monitor)
     model = A2C('MlpPolicy', env, verbose=1, n_steps = 10, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
 
-    model.learn(total_timesteps=6000000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
-    model.save(path = save_dir,include="SimpleWorldTL_")
+    model.learn(total_timesteps=20000000, tb_log_name="BigEnv_", callback= checkpoint_callback, progress_bar=True)
+    model.save(path = save_dir,include="BigWorld_")
     env.close()
 
     print("model finished!")
