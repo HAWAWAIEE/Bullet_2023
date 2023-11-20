@@ -35,7 +35,7 @@ checkpoint_callback = CheckpointCallback(
 def make_env(rank, seed=0):
     def _init():
         mapNum = 1
-        env = BigWorldTest20.simpleMapEnv(mapNum=mapNum)
+        env = BigWorldTest20.bigMapEnv(mapNum=mapNum)
         env = Monitor(env)
         return env
     return _init
@@ -53,7 +53,7 @@ def train():
 
     model.learn(total_timesteps=20000000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
     model.save(path = save_dir,include="SimpleWorldTL_")
-    torch.save(model.)
+    torch.save(model.policy.state_dict(), r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\NN\torchver.pth")
     env.close()
 
     print("model finished!")
