@@ -21,13 +21,43 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.callbacks import BaseCallback
 import matplotlib.pyplot as plt
 
-log_dir = r"C:\Users\shann\Desktop\PROGRAMMING\projects\Python\Results\Log"
+log_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\Log"
+tensorboard_log_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\Tensor"
+save_dir = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\NN\nn"
 os.makedirs(log_dir, exist_ok=True)
-env = make_vec_env(SimpleWorldTL28.simpleMapEnv, n_envs=16, env_kwargs={'mapNum': 3}, monitor_dir = log_dir,wrapper_class = Monitor)
-model = A2C('MlpPolicy', env, verbose=1)
+os.makedirs(tensorboard_log_dir, exist_ok=True)
 
-model.learn(total_timesteps=1000000)
-model.save(r"C:\Users\shann\Desktop\PROGRAMMING\projects\Python\Results\NN\nn")
-env.close()
+checkpoint_callback = CheckpointCallback(
+  save_freq=10000000,
+  save_path=log_dir
+)
 
-print("model finished!")
+
+def make_env(rank, seed=0):
+    def _init():
+        mapNum = rank % 4
+        env = SimpleWorldTL28.simpleMapEnv(mapNum=mapNum)
+        env = Monitor(env)
+        return env
+    return _init
+
+
+def train():
+    env_id = 'simpleMapEnv'
+    num_envs = 16
+    env_fns = [make_env(i) for i in range(num_envs)]
+
+    env = SubprocVecEnv(env_fns)
+
+
+    # env = make_vec_env(env_id, n_envs=16, env_kwargs=None, make_env = make_env, monitor_dir = log_dir,wrapper_class = Monitor)
+    model = A2C('MlpPolicy', env, verbose=1, n_steps = 10, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
+
+    model.learn(total_timesteps=10000000, tb_log_name="SimpleEnv_", callback= checkpoint_callback, progress_bar=True)
+    model.save(path = save_dir,include="SimpleWorldTL_")
+    env.close()
+
+    print("model finished!")
+    
+if __name__ == '__main__':
+    train()
