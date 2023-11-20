@@ -17,7 +17,7 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
-STEPTIME = 30
+STEPTIME = 120
 
 MAXSTEP = 1000
 
@@ -320,7 +320,7 @@ class Map:
 
     # Functions for simpleMap01
     def simpleMap01(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_4x1x2.urdf", self.bulletClient)
         self.labelManager.addObject(obstacle1.id, 3)
@@ -339,7 +339,7 @@ class Map:
         
     # Functions for simpleMap02
     def simpleMap02(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_1x1x2.urdf", self.bulletClient, [0,0,0])
         self.labelManager.addObject(obstacle1.id, 3)
@@ -362,7 +362,7 @@ class Map:
         
 # Functions for simpleMap03
     def simpleMap03(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
         self.labelManager.addObject(self.target.id, 5)
@@ -378,7 +378,7 @@ class Map:
         
 # Functions for simpleMap04
     def simpleMap04(self):
-        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.2,0.2],[0,0]],[[-7,-2.5],[2.5,7],[0.2,0.2],[0,0]],[[2.5,7],[-7,-2.5],[0.2,0.2],[0,0]],[[2.5, 7],[2.5, 7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.25,0.25],[0,0]],[[-7,-2.5],[2.5,7],[0.25,0.25],[0,0]],[[2.5,7],[-7,-2.5],[0.25,0.25],[0,0]],[[2.5, 7],[2.5, 7],[0.25,0.25],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_5x1x2.urdf", self.bulletClient, BaseAngle = WALLORIENTATION)
         self.labelManager.addObject(obstacle1.id, 3)
@@ -485,7 +485,7 @@ class MapGUI:
         
 # Functions for simpleMap03
     def simpleMap03(self):
-        self.rangeListList = [[[-7,7],[3,7],[0.2,0.2],[0,0]],[[-7,7],[-3,-7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
         # Loading Target
         self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
         self.labelManager.addObject(self.target.id, 5)
@@ -501,7 +501,7 @@ class MapGUI:
         
 # Functions for simpleMap04
     def simpleMap04(self):
-        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.2,0.2],[0,0]],[[-7,-2.5],[2.5,7],[0.2,0.2],[0,0]],[[2.5,7],[-7,-2.5],[0.2,0.2],[0,0]],[[2.5, 7],[2.5, 7],[0.2,0.2],[0,0]]]
+        self.rangeListList = [[[-7,-2.5],[-7,-2.5],[0.3,0.3],[0,0]],[[-7,-2.5],[2.5,7],[0.3,0.3],[0,0]],[[2.5,7],[-7,-2.5],[0.3,0.3],[0,0]],[[2.5, 7],[2.5, 7],[0.3,0.3],[0,0]]]
         # Loading Obstacles
         obstacle1 = Obstacle("Obstacle_Cube_5x1x2.urdf", self.bulletClient, BaseAngle = WALLORIENTATION)
         self.labelManager.addObject(obstacle1.id, 3)
@@ -529,7 +529,7 @@ class simpleMapEnv(gym.Env):
         super(simpleMapEnv, self).__init__()
         # Define Observation Space and Action Space
         self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
-        self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
+        self.action_space = spaces.Box(low = -1, high = 1, shape=(2,), dtype = np.float32)
         
         # Basic World configuration
         self.mapNum = mapNum
