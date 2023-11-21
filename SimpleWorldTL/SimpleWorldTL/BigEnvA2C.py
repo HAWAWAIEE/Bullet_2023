@@ -56,7 +56,7 @@ checkpoint_callback = CheckpointCallback(
 
 def make_env(rank, seed=0):
     def _init():
-        mapNum = 1
+        mapNum = 2
         env = BigWorldTest20.bigMapEnvDPBA(mapNum=mapNum)
         env = Monitor(env)
         return env
@@ -64,7 +64,7 @@ def make_env(rank, seed=0):
 
 def train():
     env_id = 'BigMapEnvDPBA'
-    num_envs = 16
+    num_envs = 1
     env_fns = [make_env(i) for i in range(num_envs)]
 
     env = SubprocVecEnv(env_fns)

@@ -2,6 +2,7 @@ from re import S
 import time
 import random
 import math
+import copy
 from pynput import keyboard
 import numpy as np
 import gymnasium as gym
@@ -23,7 +24,7 @@ RAYMASK = 0b1110
 
 STEPTIME = 30
 MAXSTEP = 2000
-DPBACOEF = 100
+DPBACOEF = 0.5
 POTENTIALCOEF = 1
 
 
@@ -600,6 +601,7 @@ class bigMapEnvDPBA(gym.Env):
         self.initialState = self.world.agent.sensorData 
         self.initialDis = self.world.agent.agentTargetDistanceSS
         self.info = {}
+        self.oldObs = self.initialState
         # method for detecting time
         self.countStep = 0
         self.timeSpend = []
@@ -613,31 +615,34 @@ class bigMapEnvDPBA(gym.Env):
         return auxReward.item()
 
     def step(self, action):
-        action = [max(-2, min(x, 2)) for x in action]
+        # action = [max(-10, min(x, 10)) for x in action]
+        self.oldObs = copy.deepcopy(self.world.agent.sensorData)
         # Perform Action. Change x/y velocity with action
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
-        oldObs = self.world.agent.sensorData
-        self.world.agent.observation()
-        observation = self.world.agent.sensorData
-        observation[18] = observation[18]/self.world.mapRadius
-        observation[19] = observation[19]/self.world.mapRadius
-        # Determine how much time will 'a step' takes
-        # Determine Reward and Done
+        
+        # Perform Simulation
+        # Determine how much time will 'a step' takes        
         for i in range(STEPTIME):
             self.world.bulletClient.stepSimulation()
             if self.targetCollision():
                 self.done = self.targetCollision()
-                break     
+                break
+        # Observe State
+        self.world.agent.observation()
+        observation = self.world.agent.sensorData
+        observation[18] = observation[18]/self.world.mapRadius
+        observation[19] = observation[19]/self.world.mapRadius
+
+        # Determine Reward and Done
         self.countStep += 1
         
-        reward = 4 if self.done else -0.001 + self.dpbaReward(oldObs,observation)
+        reward = 40 if self.done else -0.001 + self.dpbaReward(self.oldObs,observation)
         if self.countStep >= MAXSTEP:
             reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
             self.done = True
             truncated = True
         else:
             truncated = False
-
         return observation, reward, self.done, truncated, self.info
         
     def reset(self, seed = None):
@@ -650,6 +655,8 @@ class bigMapEnvDPBA(gym.Env):
         # Set Initial State
         self.initialState = self.world.agent.sensorData 
         self.initialDis = self.world.agent.agentTargetDistanceSS
+        self.oldObs = self.initialState
+        self.temp = 0
         # Save and Reset Time
         self.timeSpend.append(self.countStep*STEPTIME)
         self.countStep = 0
