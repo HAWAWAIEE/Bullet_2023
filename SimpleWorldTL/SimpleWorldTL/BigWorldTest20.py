@@ -477,6 +477,12 @@ class bigMapEnv(gym.Env):
             self.world.generateSize40x40Map()
             self.world.BigMap01()      
             self.world.BigMap01Reset()    
+        elif mapNum == 2:
+            # Generate BigMap02 world
+            self.world = Map()
+            self.world.generateSize40x40Map()
+            self.world.BigMap02()      
+            self.world.BigMap02Reset()    
             
         else:
             # Generate BigBigMap01 world
@@ -530,6 +536,8 @@ class bigMapEnv(gym.Env):
     def reset(self, seed = None):
         if self.mapNum == 1:
             self.world.BigMap01Reset()
+        elif self.mapNum ==2:
+            self.world.BigMap02Reset()
         else:
             self.world.BigBigMap01Reset()
         # Set Initial State
@@ -569,6 +577,12 @@ class bigMapEnvDPBA(gym.Env):
             self.world.generateSize40x40Map()
             self.world.BigMap01()      
             self.world.BigMap01Reset()    
+        elif mapNum == 2:
+            # Generate BigMap01 world
+            self.world = Map()
+            self.world.generateSize40x40Map()
+            self.world.BigMap02()      
+            self.world.BigMap02Reset()    
             
         else:
             # Generate BigBigMap01 world
@@ -629,6 +643,8 @@ class bigMapEnvDPBA(gym.Env):
     def reset(self, seed = None):
         if self.mapNum == 1:
             self.world.BigMap01Reset()
+        elif self.mapNum ==2:
+            self.world.BigMap02Reset()
         else:
             self.world.BigBigMap01Reset()
         # Set Initial State
