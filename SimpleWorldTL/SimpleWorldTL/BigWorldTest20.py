@@ -285,7 +285,7 @@ class Map:
     4. Use Map Reset
     """
     def __init__(self, physicsClientId:int = None):
-        self.bulletClient = bc.BulletClient(connection_mode = p.DIRECT)
+        self.bulletClient = bc.BulletClient(connection_mode = p.GUI)
         self.bulletClient.setGravity(0,0,-10)
         self.bulletClient.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
         self.labelManager = LabelManager()
@@ -418,7 +418,7 @@ class bigMapEnv(gym.Env):
         # Define Observation Space and Action Space
         self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
         self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
-        
+        self.done = False
         # Basic World configuration
         self.mapNum = mapNum
         if mapNum == 1:
@@ -462,18 +462,20 @@ class bigMapEnv(gym.Env):
         # Determine Reward and Done
         for i in range(STEPTIME):
             self.world.bulletClient.stepSimulation()
-            done = self.targetCollision()
+            if self.targetCollision():
+                self.done = self.targetCollision()
+                break     
         self.countStep += 1
         
-        reward = 4 if done else -0.001 
+        reward = 4 if self.done else -0.001 
         if self.countStep >= MAXSTEP:
             reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
-            done = True
+            self.done = True
             truncated = True
         else:
             truncated = False
 
-        return observation, reward, done, truncated, self.info
+        return observation, reward, self.done, truncated, self.info
         
     def reset(self, seed = None):
         if self.mapNum == 1:
@@ -486,7 +488,7 @@ class bigMapEnv(gym.Env):
         # Save and Reset Time
         self.timeSpend.append(self.countStep*STEPTIME)
         self.countStep = 0
-        
+        self.done = False
         return self.initialState, {}
 
     # Collision Detection Logic

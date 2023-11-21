@@ -23,6 +23,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="BigWorldTest20DPBA.py" />
     <Compile Include="BigWorldTest20.py" />
     <Compile Include="ObjectValidity.py" />
     <Compile Include="SimpleEnvA2CTest.py" />
