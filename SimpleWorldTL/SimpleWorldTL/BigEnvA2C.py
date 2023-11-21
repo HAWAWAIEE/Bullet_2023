@@ -35,13 +35,13 @@ checkpoint_callback = CheckpointCallback(
 def make_env(rank, seed=0):
     def _init():
         mapNum = 1
-        env = SimpleWorldTL20.bigMapEnv(mapNum=mapNum)
+        env = SimpleWorldTL20.bigMapEnvDPBA(mapNum=mapNum)
         env = Monitor(env)
         return env
     return _init
 
 def train():
-    env_id = 'BigMapEnv'
+    env_id = 'BigMapEnvDPBA'
     num_envs = 16
     env_fns = [make_env(i) for i in range(num_envs)]
 
