@@ -34,7 +34,7 @@ checkpoint_callback = CheckpointCallback(
 
 def make_env(rank, seed=0):
     def _init():
-        mapNum = 1
+        mapNum = 2
         env = BigWorldTest20.bigMapEnv(mapNum=mapNum)
         env = Monitor(env)
         return env
