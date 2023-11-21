@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch.multiprocessing as mp
 import torch.optim as optim
 import multiprocessing
-import BigWorldTest20
+import SimpleWorldTL20
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
@@ -35,7 +35,7 @@ checkpoint_callback = CheckpointCallback(
 def make_env(rank, seed=0):
     def _init():
         mapNum = rank%4
-        env = BigWorldTest20.simpleMapEnv(mapNum=mapNum)
+        env = SimpleWorldTL20.simpleMapEnv(mapNum=mapNum)
         env = Monitor(env)
         return env
     return _init
