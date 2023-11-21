@@ -9,6 +9,9 @@ from gymnasium import spaces
 import pybullet as p
 import pybullet_data 
 from pybullet_utils import bullet_client as bc
+from utils import (SB3ToTorchNN, nnKeyChanger)
+import torch
+
 
 STATENUM = 20
 NUMRAYS = 8
@@ -17,10 +20,14 @@ MAXDISTANCE = 400
 WALLORIENTATION = p.getQuaternionFromEuler([0,0,3.14159 / 2])
 RAYEXCLUDE = 0b0001
 RAYMASK = 0b1110
+
 STEPTIME = 60
-
 MAXSTEP = 2000
+DPBACOEF = 0.1
+POTENTIALCOEF = 1
 
+
+POLICYPATH = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\BigEnv_Normal_16workers_4map_10000000timesteps_Results\nn\policy.pth"
 
 def randomQuaternionZaxis(RangeList):
     """
@@ -285,7 +292,7 @@ class Map:
     4. Use Map Reset
     """
     def __init__(self, physicsClientId:int = None):
-        self.bulletClient = bc.BulletClient(connection_mode = p.GUI)
+        self.bulletClient = bc.BulletClient(connection_mode = p.DIRECT)
         self.bulletClient.setGravity(0,0,-10)
         self.bulletClient.setAdditionalSearchPath("C:/Users/shann/Desktop/Modeling/URDF")
         self.labelManager = LabelManager()
@@ -468,6 +475,103 @@ class bigMapEnv(gym.Env):
         self.countStep += 1
         
         reward = 4 if self.done else -0.001 
+        if self.countStep >= MAXSTEP:
+            reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
+            self.done = True
+            truncated = True
+        else:
+            truncated = False
+
+        return observation, reward, self.done, truncated, self.info
+        
+    def reset(self, seed = None):
+        if self.mapNum == 1:
+            self.world.BigMap01Reset()
+        else:
+            self.world.BigBigMap01Reset()
+        # Set Initial State
+        self.initialState = self.world.agent.sensorData 
+        self.initialDis = self.world.agent.agentTargetDistanceSS
+        # Save and Reset Time
+        self.timeSpend.append(self.countStep*STEPTIME)
+        self.countStep = 0
+        self.done = False
+        return self.initialState, {}
+
+    # Collision Detection Logic
+    def targetCollision(self):
+        contacts = self.world.bulletClient.getContactPoints(bodyA=self.world.agent.id, bodyB=self.world.target.id)
+        if len(contacts) > 0:
+            return True
+        else:
+            return False
+        
+class bigMapEnvDPBA(gym.Env):
+    def __init__(self, mapNum:int):
+        super().__init__()
+        # Define Observation Space and Action Space
+        self.observation_space = spaces.Box(low=-100, high=100, shape=(STATENUM,), dtype=np.float32)
+        self.action_space = spaces.Box(low = -2, high = 2, shape=(2,), dtype = np.float32)
+
+        # Load Expert Actor-Critic from POLICYPATH
+        expert_state_dict = nnKeyChanger(torch.load(POLICYPATH, map_location=torch.device('cpu')))
+        self.expert = SB3ToTorchNN(STATENUM, 2)
+        self.expert = self.expert.load_state_dict(expert_state_dict)
+        # Basic World configuration
+        self.mapNum = mapNum
+        if mapNum == 1:
+            # Generate BigMap01 world
+            self.world = Map()
+            self.world.generateSize40x40Map()
+            self.world.BigMap01()      
+            self.world.BigMap01Reset()    
+            
+        else:
+            # Generate BigBigMap01 world
+            self.world = Map()
+            self.world.generateSize80x80Map()
+            self.world.BigBigMap01()      
+            self.world.BigBigMap01Reset()
+        """
+        Following Properties are for Recording Episodic Results
+        1. Time Spend in Simulation per Episode
+        """
+        
+        # Set Initial State
+        self.done = False
+        self.initialState = self.world.agent.sensorData 
+        self.initialDis = self.world.agent.agentTargetDistanceSS
+        self.info = {}
+        # method for detecting time
+        self.countStep = 0
+        self.timeSpend = []
+        print(f"------------------Map : {self.mapNum}---ID : {self.world.serverId}------------------")
+
+    def dpbaReward(self, oldObs, newObs):
+        # Normalize / Clamp State
+        # Add Later
+        auxReward = DPBACOEF*(POTENTIALCOEF*self.expert.valueForward(newObs)-self.expert.valueForward(oldObs))
+        return auxReward
+
+    def step(self, action):
+        action = [max(-2, min(x, 2)) for x in action]
+        # Perform Action. Change x/y velocity with action
+        self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
+        oldObs  = self.world.agent.sensorData
+        self.world.agent.observation()
+        observation = self.world.agent.sensorData
+        observation[18] = observation[18]/self.world.mapRadius
+        observation[19] = observation[19]/self.world.mapRadius
+        # Determine how much time will 'a step' takes
+        # Determine Reward and Done
+        for i in range(STEPTIME):
+            self.world.bulletClient.stepSimulation()
+            if self.targetCollision():
+                self.done = self.targetCollision()
+                break     
+        self.countStep += 1
+        
+        reward = 4 if self.done else -0.001 + self.dpbaReward(oldObs,observation)
         if self.countStep >= MAXSTEP:
             reward += (1-self.world.agent.agentTargetDistanceSS/self.world.mapScale)
             self.done = True
