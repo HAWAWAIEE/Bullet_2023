@@ -47,16 +47,19 @@ class SB3ToTorchNN(nn.Module):
         )
 
     def actorForward(self, x):
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
         mean = self.actor(x)
         log_std = torch.zeros_like(mean)
 
         std = torch.exp(log_std)
-
-        dist = DiagGaussianDistribution
+        dist = torch.distributions.Normal(mean, std)
         actions = dist.sample()
         return actions
         
-    def valueForward(self,x):
+    def criticForward(self,x):
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32)
         state_value = self.critic(x) 
         return state_value
     

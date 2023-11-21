@@ -23,7 +23,7 @@ RAYMASK = 0b1110
 
 STEPTIME = 30
 MAXSTEP = 2000
-DPBACOEF = 0.1
+DPBACOEF = 1
 POTENTIALCOEF = 1
 
 
@@ -516,7 +516,8 @@ class bigMapEnvDPBA(gym.Env):
         # Load Expert Actor-Critic from POLICYPATH
         expert_state_dict = nnKeyChanger(torch.load(POLICYPATH, map_location=torch.device('cpu')))
         self.expert = SB3ToTorchNN(STATENUM, 2)
-        self.expert = self.expert.load_state_dict(expert_state_dict)
+        self.expert.load_state_dict(expert_state_dict)
+        
         # Basic World configuration
         self.mapNum = mapNum
         if mapNum == 1:
@@ -550,14 +551,15 @@ class bigMapEnvDPBA(gym.Env):
     def dpbaReward(self, oldObs, newObs):
         # Normalize / Clamp State
         # Add Later
-        auxReward = DPBACOEF*(POTENTIALCOEF*self.expert.valueForward(newObs)-self.expert.valueForward(oldObs))
-        return auxReward
+        auxReward = DPBACOEF*(POTENTIALCOEF*self.expert.criticForward(newObs).detach()-self.expert.criticForward(oldObs).detach())
+        
+        return auxReward.item()
 
     def step(self, action):
         action = [max(-2, min(x, 2)) for x in action]
         # Perform Action. Change x/y velocity with action
         self.world.bulletClient.resetBaseVelocity(self.world.agent.id, linearVelocity = [action[0], action[1],0])
-        oldObs  = self.world.agent.sensorData
+        oldObs = self.world.agent.sensorData
         self.world.agent.observation()
         observation = self.world.agent.sensorData
         observation[18] = observation[18]/self.world.mapRadius
