@@ -64,7 +64,3 @@ def PrintPth(path):
     policy_dict = torch.load(path)
     for key, value in policy_dict.items():
         print(f"{key}: {value}")
-
-
-policy_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\BigEnv_Normal_16workers_4map_10000000timesteps_Results\nn\policy.pth" 
-PrintPth(policy_path)

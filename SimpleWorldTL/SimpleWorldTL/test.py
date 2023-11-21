@@ -4,7 +4,7 @@ from stable_baselines3 import A2C
 import time
 import gymnasium as gym
 import numpy as np
-import SimpleWorldTL20
+import BigWorldTest20
 from stable_baselines3.common.env_util import make_vec_env
 
 policy_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\BigEnv_Normal_16workers_4map_10000000timesteps_Results\nn\policy.pth"
@@ -69,7 +69,7 @@ model = SB3ToTorchNN(input_dim, output_dim)
 model_state_dict = nnKeyChanger(torch.load(policy_file_path, map_location=torch.device('cpu')))
 model.load_state_dict(model_state_dict)
 
-env = SimpleWorldTL20.bigMapEnv(1)
+env = BigWorldTest20.bigMapEnv(1)
 
 while(True):
     observation, _ = env.reset()

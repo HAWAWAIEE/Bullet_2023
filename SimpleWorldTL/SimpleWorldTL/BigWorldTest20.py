@@ -27,7 +27,7 @@ DPBACOEF = 0.1
 POTENTIALCOEF = 1
 
 
-POLICYPATH = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\BigEnv_Normal_16workers_4map_10000000timesteps_Results\nn\policy.pth"
+POLICYPATH = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Past_Results\Last_SimleEnvTL20\nn\policy.pth"
 
 def randomQuaternionZaxis(RangeList):
     """
