@@ -8,10 +8,7 @@ import BigWorldTest20
 from stable_baselines3.common.env_util import make_vec_env
 from utils import(SB3ToTorchNN, nnKeyChanger)
 
-policy_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\BigEnv_Normal_16workers_4map_10000000timesteps_Results\nn\policy.pth"
-variables_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\SimpleEnvTL28_16workers_4maps_10000000timesteps_Results\NN\pytorch_variables.pth"
-model_file_path = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Past_Results\SimpleEnvTL20_16workers_4map_6000000timesteps_newsettings_Results\nn.zip"
-pth_file_path = r"C:\Users\shann\Desktop\PROGRAMMiNG\Python\Results\NN\torchver.pth"
+policy_file_path = r"C:\Users\shann\Desktop\PROGRAMMING\Python\Past_Results\Last_SimleEnvTL20\nn\policy.pth"
 input_dim = 20
 output_dim = 2
 # Old Version But Stable
@@ -79,8 +76,6 @@ while(True):
     while not done:
         actual_observation = torch.from_numpy(np.array(observation)).float()
         action = model.actorForward(actual_observation)
-        print(model.criticForward(actual_observation))
         observation, reward, done, info, truncated = env.step(action)
-        time.sleep(.480)
     print(reward)
     

@@ -33,6 +33,7 @@ checkpoint_callback = CheckpointCallback(
   save_path=log_dir
 )
 
+
 # class CustomPolicy(ActorCriticPolicy):
 #     def _build_mlp_extractor(self) -> None:
 #         self.mlp_extractor = CustomMLPExtractor(self.features_dim)
@@ -50,14 +51,13 @@ checkpoint_callback = CheckpointCallback(
 #             nn.Tanh(),
 #         )
 
-    # def forward(self, features: torch.Tensor) -> torch.Tensor:
-    #     return self.shared_net(features)
-
+#     def forward(self, features: torch.Tensor) -> torch.Tensor:
+#         return self.shared_net(features)
 
 def make_env(rank, seed=0):
     def _init():
         mapNum = 1
-        env = BigWorldTest20.bigMapEnv(mapNum=mapNum)
+        env = BigWorldTest20.bigMapEnvDPBA(mapNum=mapNum)
         env = Monitor(env)
         return env
     return _init
@@ -68,12 +68,12 @@ def train():
     env_fns = [make_env(i) for i in range(num_envs)]
 
     env = SubprocVecEnv(env_fns)
-
     # env = make_vec_env(env_id, n_envs=16, env_kwargs=None, make_env = make_env, monitor_dir = log_dir,wrapper_class = Monitor)
-    model = A2C('MlpPolicy', env, verbose=1, n_steps = 20, ent_coef=0.001,  tensorboard_log= tensorboard_log_dir)
+    model = A2C('MlpPolicy', env, verbose=1, n_steps = 20, ent_coef=0.001,
+                tensorboard_log= tensorboard_log_dir)
 
-
-    model.learn(total_timesteps=10000000, tb_log_name="BigEnv_", callback= checkpoint_callback, progress_bar=True)
+    model.learn(total_timesteps=7000000, tb_log_name="BigEnv_", 
+                callback= checkpoint_callback, progress_bar=True)
     model.save(path = save_dir,include="SimpleWorldTL_")
     env.close()
 
