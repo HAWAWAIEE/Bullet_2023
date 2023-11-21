@@ -400,6 +400,49 @@ class Map:
         self.agent.reset(1)
         self.target.reset(1)
         
+    def BigMap02(self):
+        """
+        BigMap02 for 40x40 Size Map
+        4 rangeList for Target&Agent Spawn location
+        Many Obstacles
+        """
+        self.rangeListList = [[[3,16],[3,16],[0.3,0.3],[0,0]], [[-3,-16],[-3,-16],[0.3,0.3],[0,0]],[[-3,-16],[3,16],[0.3,0.3],[0,0]],[[3,16],[-3,-16],[0.3,0.3],[0,0]]]
+        # Loading Obstacles
+        obstacle1 = Obstacle("Obstacle_Cube_1x6x4.urdf", self.bulletClient)
+        self.labelManager.addObject(obstacle1.id, 3)
+        obstacle2 = Obstacle("Obstacle_Cube_1x6x4.urdf", self.bulletClient, [0,0,0], WALLORIENTATION)
+        self.labelManager.addObject(obstacle2.id, 3)    
+        obstacle7 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [0, 10, 0])
+        self.labelManager.addObject(obstacle7.id, 3)
+        obstacle8 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [0, 15, 0])
+        self.labelManager.addObject(obstacle8.id, 3)
+        obstacle9 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [0, -10, 0])
+        self.labelManager.addObject(obstacle9.id, 3)
+        obstacle10 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [0, -15, 0])
+        self.labelManager.addObject(obstacle10.id, 3)
+        obstacle11 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [10, 0, 0])
+        self.labelManager.addObject(obstacle11.id, 3)
+        obstacle12 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [15, 0, 0])
+        self.labelManager.addObject(obstacle12.id, 3)
+        obstacle13 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [-10, 0, 0])
+        self.labelManager.addObject(obstacle13.id, 3)
+        obstacle14 = Obstacle("Obstacle_Cube_1x1x4.urdf", self.bulletClient, [-15, 0, 0])
+        self.labelManager.addObject(obstacle14.id, 3)
+        
+        # Loading Target
+        self.target = Target("Target_Cylinder.urdf", self.bulletClient, self.rangeListList[0])
+        self.labelManager.addObject(self.target.id, 5)
+        # Loading Agent
+        self.agent = Agent("Agent_Double_Cylinder.urdf", self.target.id, self.bulletClient, self.labelManager, self.rangeListList[1], physicsClientId=None)
+        self.labelManager.addObject(self.agent.id, 9)
+        
+    def BigMap02Reset(self):
+        # Randomly select rangeList for agent and target
+        [self.agent.rangeList, self.target.rangeList] = random.sample(self.rangeListList,2)
+        # Reset Agent and Target
+        self.agent.reset(1)
+        self.target.reset(1)   
+        
     # Functions for BigBigMap01
     def BigBigMap01(self):
         self.rangeListList = [[[-7,7],[3,7],[0.25,0.25],[0,0]],[[-7,7],[-3,-7],[0.25,0.25],[0,0]]]
